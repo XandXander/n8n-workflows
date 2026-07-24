@@ -1,0 +1,600 @@
+# ENVIRONMENT.md
+
+# Runtime Environment Documentation
+
+Project: XandAI / n8n Automation Platform
+
+Last updated: 2026-07-07
+
+---
+
+# Purpose
+
+This document describes the runtime environment of the project.
+
+It contains:
+
+- Operating system
+- Docker environment
+- Application configuration
+- Environment variables
+- External services
+- Installed community nodes
+- Runtime limitations
+
+Business logic is documented separately in PROJECT_KNOWLEDGE.md.
+
+---
+
+# Operating System
+
+Operating System
+
+```
+Ubuntu 24.04.4 LTS
+```
+
+Kernel
+
+```
+Linux 6.8.0-124-generic
+```
+
+Architecture
+
+```
+x86_64
+```
+
+Virtualization
+
+```
+KVM
+```
+
+Timezone
+
+```
+Europe/Moscow
+```
+
+---
+
+# Hardware Resources
+
+CPU
+
+```
+2 vCPU
+```
+
+Memory
+
+```
+3.8 GB RAM
+```
+
+Swap
+
+```
+4 GB
+```
+
+Disk
+
+```
+38 GB SSD
+```
+
+Available disk space
+
+Approximately
+
+```
+25 GB
+```
+
+---
+
+# Docker Environment
+
+Docker Engine
+
+Enabled as system service.
+
+Containers start automatically after reboot.
+
+Docker Compose
+
+Project name
+
+```
+n8n
+```
+
+Compose file
+
+```
+/opt/beget/n8n/docker-compose.yml
+```
+
+Persistent storage uses Docker local-persist volumes.
+
+---
+
+# Docker Containers
+
+## n8n
+
+Purpose
+
+Main workflow engine.
+
+Image
+
+```
+docker.n8n.io/n8nio/n8n:2.28.6
+```
+
+---
+
+## n8n Worker
+
+Purpose
+
+Background execution worker.
+
+Command
+
+```
+worker
+```
+
+---
+
+## PostgreSQL
+
+Image
+
+```
+pgvector/pgvector:pg16
+```
+
+Purpose
+
+Workflow database.
+
+Extensions
+
+- pgcrypto
+- uuid-ossp
+
+---
+
+## Redis
+
+Image
+
+```
+redis:6-alpine
+```
+
+Purpose
+
+Queue backend.
+
+---
+
+## Traefik
+
+Image
+
+```
+traefik:3.6.5
+```
+
+Purpose
+
+HTTPS reverse proxy.
+
+TLS provider
+
+Let's Encrypt
+
+---
+
+## Gotenberg
+
+Image
+
+```
+gotenberg/gotenberg:8
+```
+
+Purpose
+
+HTML → PDF conversion.
+
+---
+
+# n8n Runtime Configuration
+
+Execution Mode
+
+```
+regular
+```
+
+Binary Data Mode
+
+```
+filesystem
+```
+
+Execution Pruning
+
+Enabled
+
+Retention
+
+```
+336 hours
+```
+
+Save Successful Executions
+
+```
+none
+```
+
+Save Failed Executions
+
+```
+all
+```
+
+Maximum Concurrent Executions
+
+```
+5
+```
+
+Maximum Payload
+
+```
+32 MB
+```
+
+Environment Access From Code Nodes
+
+Blocked
+
+Git Bare Repositories
+
+Disabled
+
+Personalization
+
+Disabled
+
+Settings File Permissions
+
+Enforced
+
+---
+
+# Environment Variables
+
+The runtime configuration is stored in
+
+```
+/opt/beget/n8n/.env
+```
+
+The file contains:
+
+- PostgreSQL configuration
+- Redis configuration
+- n8n configuration
+- Webhook configuration
+- Encryption key
+- Credentials
+- API keys
+
+Sensitive values must never be:
+
+- committed to Git
+- exported into documentation
+- included in prompts sent to external LLMs
+
+Always replace secret values with
+
+```
+<REDACTED>
+```
+
+when sharing configuration.
+
+---
+
+# Persistent Directories
+
+Project root
+
+```
+/opt/beget/n8n
+```
+
+n8n data
+
+```
+/opt/beget/n8n/n8n_storage
+```
+
+Workflow storage
+
+```
+/opt/beget/n8n/n8n_storage/storage/workflows
+```
+
+Database
+
+```
+/opt/beget/n8n/db_storage
+```
+
+Redis
+
+```
+/opt/beget/n8n/redis_storage
+```
+
+Traefik certificates
+
+```
+/opt/beget/n8n/traefik_data
+```
+
+Backups
+
+```
+/opt/beget/n8n/backups
+```
+
+---
+
+# Community Nodes
+
+Installed packages
+
+```
+@tavily/n8n-nodes-tavily
+n8n-nodes-yandexgpt
+n8n-nodes-yandex-disk
+n8n-nodes-yandex-dialogs
+n8n-nodes-wkhtmltopdf
+```
+
+Community nodes are installed in
+
+```
+/opt/beget/n8n/n8n_storage/nodes
+```
+
+---
+
+# Database Environment
+
+Database
+
+```
+PostgreSQL 16 (pgvector)
+```
+
+Host
+
+```
+postgres
+```
+
+Port
+
+```
+5432
+```
+
+Connection type
+
+Internal Docker network only.
+
+Public access
+
+Disabled.
+
+---
+
+# Queue Environment
+
+Backend
+
+```
+Redis
+```
+
+Host
+
+```
+redis
+```
+
+Queue health checks
+
+Enabled.
+
+---
+
+# Reverse Proxy
+
+Software
+
+```
+Traefik 3.6.5
+```
+
+Public domain
+
+```
+https://xandai.ru
+```
+
+HTTP
+
+Automatically redirected to HTTPS.
+
+TLS
+
+Let's Encrypt.
+
+---
+
+# Health Monitoring
+
+n8n health check
+
+```
+healthcheck.js
+```
+
+Checks
+
+```
+http://127.0.0.1:5678/
+```
+
+Expected response
+
+```
+HTTP 200
+```
+
+Worker health
+
+HTTP endpoint
+
+```
+/healthz
+```
+
+---
+
+# External Services
+
+Current environment integrates with the following external services.
+
+Search
+
+- Tavily
+
+LLM Providers
+
+- OpenAI-compatible APIs
+- Yandex AI Studio (optional)
+
+Messaging
+
+- Telegram Bot API
+
+Document Generation
+
+- Gotenberg
+
+Cloud Storage
+
+- Yandex Disk
+
+---
+
+# Security
+
+HTTPS is mandatory.
+
+Redis is not exposed.
+
+PostgreSQL is not exposed.
+
+n8n is available only behind Traefik.
+
+Secrets are stored exclusively in
+
+```
+.env
+```
+
+Binary data is stored on the filesystem.
+
+Workflow encryption uses the n8n encryption key stored in
+
+```
+N8N_ENCRYPTION_KEY
+```
+
+---
+
+# Backup Environment
+
+Backup directory
+
+```
+/opt/beget/n8n/backups
+```
+
+Observed backup types
+
+```
+PostgreSQL dump (.sql.gz)
+
+n8n storage archive (.tar.gz)
+```
+
+Backup creation mechanism
+
+Not documented.
+
+No backup scripts or cron jobs were found on the server.
+
+---
+
+# Automatic Updates
+
+Ubuntu security updates
+
+Enabled via
+
+```
+unattended-upgrades
+```
+
+Docker containers
+
+Updated manually.
+
+Automatic container update systems (e.g. Watchtower)
+
+Not installed.
+
+---
+
+# Resource Constraints
+
+The environment is optimized for:
+
+- one production instance of n8n
+- one worker
+- PostgreSQL
+- Redis
+- Traefik
+- Gotenberg
+
+Available resources are limited.
+
+Any future extensions (additional workers, local LLMs, vector databases, monitoring stacks, etc.) should be evaluated against the available CPU, RAM and disk capacity before deployment.

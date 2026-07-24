@@ -1,0 +1,1063 @@
+{
+  "name": "OSINT_01_Core_Router",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Sticky Note - Triggers",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [180, 60],
+      "parameters": {
+        "content": "## БЛОК 1: Триггеры\n\n3 параллельных источника входящих запросов:\n- **Telegram** — сообщения, редактирования, callback\n- **Email IMAP** — письма с темой \"OSINT:\"\n- **Schedule** — каждые 5 мин проверка очереди в Sheets",
+        "width": 660,
+        "height": 140
+      }
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "name": "Sticky Note - Normalize",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [900, 60],
+      "parameters": {
+        "content": "## БЛОК 2: Нормализация\n\nОбъединение и унификация payload:\n`{source, user_id, chat_id, raw_text, voice_file_id, timestamp}`\n\nЕсли есть голос → STT через OSINT_08_Utilities",
+        "width": 440,
+        "height": 140
+      }
+    },
+    {
+      "id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+      "name": "Sticky Note - Classification",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1400, 60],
+      "parameters": {
+        "content": "## БЛОК 3: Классификация intent\n\nGroq LLM определяет тип запроса:\n- search_private / search_b2b\n- company_analysis / tender_search\n- site_analysis / deep_osint\n\nИзвлекает entities: service, region, budget, keywords и т.д.",
+        "width": 440,
+        "height": 160
+      }
+    },
+    {
+      "id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+      "name": "Sticky Note - Routing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1900, 60],
+      "parameters": {
+        "content": "## БЛОК 4: Роутинг\n\nSwitch по intent → Execute Workflow (fire-and-forget):\n- OSINT_02_Search_Engine\n- OSINT_03_Company_Intel\n- OSINT_04_Tender_Intel\n- и другие sub-workflows\n\nПараллельно: подтверждение пользователю в Telegram",
+        "width": 480,
+        "height": 160
+      }
+    },
+    {
+      "id": "e5f6a7b8-c9d0-1234-efab-567890123456",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "parameters": {
+        "updates": ["message", "edited_message", "callback_query"]
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "PLACEHOLDER_Telegram_Bot",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "f6a7b8c9-d0e1-2345-fabc-678901234567",
+      "name": "Email IMAP Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [200, 520],
+      "parameters": {
+        "mailbox": "INBOX",
+        "format": "resolved",
+        "postProcessAction": "nothing",
+        "options": {
+          "customEmailConfig": [],
+          "forceReconnect": false
+        },
+        "filters": {
+          "subject": "OSINT:",
+          "unseen": true
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "PLACEHOLDER_Yandex_IMAP",
+          "name": "Yandex IMAP"
+        }
+      }
+    },
+    {
+      "id": "a7b8c9d0-e1f2-3456-abcd-789012345678",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 740],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b8c9d0e1-f2a3-4567-bcde-890123456789",
+      "name": "Read Queued Jobs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [420, 740],
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "OSINT-Platform"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "jobs"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "queued_manual"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PLACEHOLDER_Google_Sheets_OAuth2",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "id": "c9d0e1f2-a3b4-5678-cdef-901234567890",
+      "name": "Merge Inputs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [700, 520],
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      }
+    },
+    {
+      "id": "d0e1f2a3-b4c5-6789-defa-012345678901",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 520],
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const data = item.json;\n  let normalized = {\n    source: null,\n    user_id: null,\n    chat_id: null,\n    raw_text: '',\n    voice_file_id: null,\n    timestamp: new Date().toISOString()\n  };\n  \n  // Telegram message\n  if (data.message || data.edited_message || data.callback_query) {\n    normalized.source = 'telegram';\n    const msg = data.message || data.edited_message || data.callback_query?.message;\n    const from = data.message?.from || data.edited_message?.from || data.callback_query?.from;\n    \n    normalized.user_id = from?.id?.toString() || null;\n    normalized.chat_id = msg?.chat?.id?.toString() || null;\n    \n    if (data.callback_query) {\n      normalized.raw_text = data.callback_query.data || '';\n    } else if (msg?.voice) {\n      normalized.voice_file_id = msg.voice.file_id;\n      normalized.raw_text = msg.caption || '';\n    } else {\n      normalized.raw_text = msg?.text || msg?.caption || '';\n    }\n  }\n  // Email\n  else if (data.subject !== undefined || data.from?.value) {\n    normalized.source = 'email';\n    normalized.user_id = data.from?.value?.[0]?.address || data.from || 'email_user';\n    normalized.chat_id = null;\n    normalized.raw_text = (data.subject || '') + '\\n' + (data.text || data.textPlain || '');\n  }\n  // Google Sheets queued job\n  else if (data.status === 'queued_manual' || data.raw_text) {\n    normalized.source = 'sheets';\n    normalized.user_id = data.user_id || 'sheets_user';\n    normalized.chat_id = data.chat_id || null;\n    normalized.raw_text = data.raw_text || data.query || '';\n  }\n  \n  // Skip empty\n  if (normalized.raw_text || normalized.voice_file_id) {\n    results.push({ json: normalized });\n  }\n}\n\nreturn results.length > 0 ? results : [{ json: { source: 'empty', raw_text: '', user_id: null, chat_id: null, voice_file_id: null, timestamp: new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "e1f2a3b4-c5d6-7890-efab-123456789012",
+      "name": "Has Voice?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1140, 520],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "combinator": "and"
+          },
+          "conditions": [
+            {
+              "id": "voice-check",
+              "leftValue": "={{ $json.voice_file_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f2a3b4c5-d6e7-8901-fabc-234567890123",
+      "name": "Execute STT Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1360, 400],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "OSINT_08_Utilities"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "operation": "stt",
+            "file_id": "={{ $json.voice_file_id }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "a3b4c5d6-e7f8-9012-abcd-345678901234",
+      "name": "Merge Voice Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1580, 400],
+      "parameters": {
+        "jsCode": "const sttResult = $input.first().json;\nconst originalData = $('Has Voice?').first().json;\n\nreturn [{\n  json: {\n    ...originalData,\n    raw_text: sttResult.transcription || sttResult.text || originalData.raw_text\n  }\n}];"
+      }
+    },
+    {
+      "id": "b4c5d6e7-f8a9-0123-bcde-456789012345",
+      "name": "Merge After Voice Check",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [1800, 520],
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      }
+    },
+    {
+      "id": "c5d6e7f8-a9b0-1234-cdef-567890123456",
+      "name": "Groq Intent Classifier",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2020, 520],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"temperature\": 0.2,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Ты классификатор запросов OSINT-платформы. Верни JSON: {\\\"intent\\\": \\\"search_private\\\" | \\\"search_b2b\\\" | \\\"company_analysis\\\" | \\\"tender_search\\\" | \\\"site_analysis\\\" | \\\"deep_osint\\\", \\\"entities\\\": {\\\"service\\\": string|null, \\\"region\\\": string|null, \\\"budget_min\\\": number|null, \\\"budget_max\\\": number|null, \\\"keywords\\\": string[], \\\"target_url\\\": string|null, \\\"target_inn\\\": string|null}, \\\"confidence\\\": 0-1}. Услуги компании: проектирование инженерных систем, монтаж вентиляции/кондиционирования/отопления, проектирование фасадов, AI-агенты, автоматизация бизнеса, рекламные видео, графика. Приоритет — частные заказчики (search_private). Если запрос про компанию по ИНН — company_analysis. Если про тендеры/закупки — tender_search. Если про анализ сайта — site_analysis. Если глубокий поиск по персоне/организации — deep_osint. Бизнес-клиенты — search_b2b.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.raw_text) }}\n    }\n  ]\n}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxTries": 3,
+            "waitBetweenTries": 2000
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER_Groq_API",
+          "name": "Groq API"
+        }
+      }
+    },
+    {
+      "id": "d6e7f8a9-b0c1-2345-defa-678901234567",
+      "name": "Parse Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2240, 520],
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst prevData = $('Merge After Voice Check').first().json;\n\nlet parsed;\ntry {\n  const content = response.choices?.[0]?.message?.content || '{}';\n  parsed = JSON.parse(content);\n} catch (e) {\n  parsed = {\n    intent: 'search_private',\n    entities: { keywords: [] },\n    confidence: 0\n  };\n}\n\nconst jobId = crypto.randomUUID();\nconst createdAt = new Date().toISOString();\n\nreturn [{\n  json: {\n    job_id: jobId,\n    created_at: createdAt,\n    source: prevData.source,\n    user_id: prevData.user_id,\n    chat_id: prevData.chat_id,\n    raw_text: prevData.raw_text,\n    intent: parsed.intent || 'search_private',\n    entities: parsed.entities || {},\n    confidence: parsed.confidence || 0,\n    status: 'processing'\n  }\n}];"
+      }
+    },
+    {
+      "id": "e7f8a9b0-c1d2-3456-efab-789012345678",
+      "name": "Check Parse Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2460, 520],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "combinator": "and"
+          },
+          "conditions": [
+            {
+              "id": "confidence-check",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": 0.3,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f8a9b0c1-d2e3-4567-fabc-890123456789",
+      "name": "Create Job Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2680, 400],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "OSINT-Platform"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "jobs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "created_at": "={{ $json.created_at }}",
+            "source": "={{ $json.source }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "confidence": "={{ $json.confidence }}",
+            "status": "={{ $json.status }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PLACEHOLDER_Google_Sheets_OAuth2",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "id": "a9b0c1d2-e3f4-5678-abcd-901234567890",
+      "name": "Route by Intent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [2900, 400],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "search_private",
+              "conditions": {
+                "options": { "version": 2, "combinator": "and" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "search_private",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "search_b2b",
+              "conditions": {
+                "options": { "version": 2, "combinator": "and" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "search_b2b",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "company_analysis",
+              "conditions": {
+                "options": { "version": 2, "combinator": "and" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "company_analysis",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "tender_search",
+              "conditions": {
+                "options": { "version": 2, "combinator": "and" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "tender_search",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "site_analysis",
+              "conditions": {
+                "options": { "version": 2, "combinator": "and" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "site_analysis",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "deep_osint",
+              "conditions": {
+                "options": { "version": 2, "combinator": "and" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "deep_osint",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "b0c1d2e3-f4a5-6789-bcde-012345678901",
+      "name": "Execute Search Private",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [3180, 140],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "OSINT_02_Search_Engine"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1d2e3f4-a5b6-7890-cdef-123456789012",
+      "name": "Execute Search B2B",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [3180, 320],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "OSINT_02_Search_Engine"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "d2e3f4a5-b6c7-8901-defa-234567890123",
+      "name": "Execute Company Intel",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [3180, 500],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "OSINT_03_Company_Intel"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "e3f4a5b6-c7d8-9012-efab-345678901234",
+      "name": "Execute Tender Intel",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [3180, 680],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "OSINT_04_Tender_Intel"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "f4a5b6c7-d8e9-0123-fabc-456789012345",
+      "name": "Execute Site Analysis",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [3180, 860],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "OSINT_05_Site_Analysis"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "a5b6c7d8-e9f0-1234-abcd-567890123456",
+      "name": "Execute Deep OSINT",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [3180, 1040],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "OSINT_06_Deep_OSINT"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "b6c7d8e9-f0a1-2345-bcde-678901234567",
+      "name": "Send Confirmation Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3400, 400],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $('Parse Intent').item.json.chat_id }}",
+        "text": "=✅ Задача принята!\n\n🆔 Job ID: `{{ $('Parse Intent').item.json.job_id }}`\n📋 Тип: {{ $('Parse Intent').item.json.intent }}\n🎯 Уверенность: {{ Math.round($('Parse Intent').item.json.confidence * 100) }}%\n\nОтчёт придёт через 3-10 минут.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "PLACEHOLDER_Telegram_Bot",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "c7d8e9f0-a1b2-3456-cdef-789012345678",
+      "name": "Fallback Handler",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [3180, 1220],
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            {
+              "name": "error",
+              "stringValue": "Unknown intent - routed to fallback"
+            },
+            {
+              "name": "original_intent",
+              "stringValue": "={{ $json.intent }}"
+            },
+            {
+              "name": "job_id",
+              "stringValue": "={{ $json.job_id }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d8e9f0a1-b2c3-4567-defa-890123456789",
+      "name": "Notify Admin Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2680, 640],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.ADMIN_CHAT_ID }}",
+        "text": "=⚠️ OSINT Router: Низкая уверенность классификации\n\nJob ID: {{ $json.job_id }}\nConfidence: {{ $json.confidence }}\nIntent: {{ $json.intent }}\nRaw text: {{ $json.raw_text.substring(0, 200) }}...",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "PLACEHOLDER_Telegram_Bot",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "e9f0a1b2-c3d4-5678-efab-901234567890",
+      "name": "Low Confidence Job Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2900, 640],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "OSINT-Platform"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "jobs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "created_at": "={{ $json.created_at }}",
+            "source": "={{ $json.source }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "raw_text": "={{ $json.raw_text }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "confidence": "={{ $json.confidence }}",
+            "status": "low_confidence_review"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PLACEHOLDER_Google_Sheets_OAuth2",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "id": "f0a1b2c3-d4e5-6789-fabc-012345678901",
+      "name": "Notify User Low Confidence",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3120, 640],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=⚠️ Не удалось точно определить тип запроса.\n\nВаш запрос передан оператору для ручной обработки.\nJob ID: `{{ $json.job_id }}`",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "PLACEHOLDER_Telegram_Bot",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email IMAP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Inputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Queued Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Queued Jobs": {
+      "main": [
+        [
+          {
+            "node": "Merge Inputs",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Inputs": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Has Voice?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Voice?": {
+      "main": [
+        [
+          {
+            "node": "Execute STT Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge After Voice Check",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Execute STT Workflow": {
+      "main": [
+        [
+          {
+            "node": "Merge Voice Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Voice Result": {
+      "main": [
+        [
+          {
+            "node": "Merge After Voice Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge After Voice Check": {
+      "main": [
+        [
+          {
+            "node": "Groq Intent Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Intent Classifier": {
+      "main": [
+        [
+          {
+            "node": "Parse Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Intent": {
+      "main": [
+        [
+          {
+            "node": "Check Parse Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Parse Success": {
+      "main": [
+        [
+          {
+            "node": "Create Job Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Admin Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Job Row": {
+      "main": [
+        [
+          {
+            "node": "Route by Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Intent": {
+      "main": [
+        [
+          {
+            "node": "Execute Search Private",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Search B2B",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Company Intel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Tender Intel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Site Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Deep OSINT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Search Private": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Search B2B": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Company Intel": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Tender Intel": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Site Analysis": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Deep OSINT": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Admin Error": {
+      "main": [
+        [
+          {
+            "node": "Low Confidence Job Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Low Confidence Job Row": {
+      "main": [
+        [
+          {
+            "node": "Notify User Low Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {},
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

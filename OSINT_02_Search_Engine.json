@@ -255,7 +255,7 @@
     "Serper Search": {"main": [[{"node": "Extract URLs", "type": "main", "index": 0}]]},
     "Extract URLs": {"main": [[{"node": "Filter Empty", "type": "main", "index": 0}]]},
     "Filter Empty": {"main": [[{"node": "Loop URLs", "type": "main", "index": 0}], [{"node": "Loop Queries", "type": "main", "index": 0}]]},
-    "Loop URLs": {"main": [[{"node": "Loop Queries", "type": "main", "index": 0}], [{"node": "Firecrawl Scrape", "type": "main", "index": 0}]]},
+    "Loop URLs": {"main": [[{"node": "Firecrawl Scrape", "type": "main", "index": 0}], [{"node": "Loop Queries", "type": "main", "index": 0}]]},
     "Firecrawl Scrape": {"main": [[{"node": "Extract Contacts", "type": "main", "index": 0}]]},
     "Extract Contacts": {"main": [[{"node": "Has Contacts?", "type": "main", "index": 0}]]},
     "Has Contacts?": {"main": [[{"node": "Check Duplicate", "type": "main", "index": 0}], [{"node": "Skip No Contacts", "type": "main", "index": 0}]]},

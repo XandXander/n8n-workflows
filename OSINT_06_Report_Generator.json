@@ -80,7 +80,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'deepseek-v4-flash', temperature: 0.2, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'You are an analyst generating an OSINT report in Russian Markdown.' }, { role: 'user', content: ($json !== undefined ? JSON.stringify($json).slice(0, 6000) : '{}') } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'deepseek-v4-flash', temperature: 0.3, max_tokens: 4000, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Ты — старший аналитик OSINT-платформы. Твоя задача — сгенерировать структурированный Markdown-отчёт на русском языке на основе переданных данных о сущностях (лидах, компаниях, тендерах).\\n\\nПРАВИЛА ОТЧЁТА:\\n1. Начинай с заголовка # OSINT Report и даты.\\n2. Раздел ## Сводка: total_found, qualified, avg_score из stats.\\n3. Раздел ## Топ сущностей: таблица с колонками: №, Название/Заголовок, Услуга (matched_service), Score (total_score), Статус, Контакты. Максимум 10 строк.\\n4. Раздел ## Рекомендации к действию: для каждой qualified сущности с total_score >= 50 — recommended_action и first_message_draft.\\n5. Раздел ## Детальный разбор: для топ-5 сущностей — why_relevant.\\n6. Если entities пуст — честно напиши «Сущности не найдены. Возможные причины: поисковые запросы не дали результатов, либо порог фильтрации слишком высок.»\\n\\nВерни СТРОГО JSON: { \"markdown_report\": \"string\" }' }, { role: 'user', content: ($json !== undefined ? JSON.stringify($json).slice(0, 6000) : '{}') } ] }) }}",
         "options": {"timeout": 120000, "retryOnFail": true, "maxTries": 3, "retryWaitTime": 2000}
       },
       "name": "DeepSeek Generate MD",

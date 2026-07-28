@@ -28,7 +28,7 @@
       "parameters": {
         "operation": "read",
         "documentId": {"__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id"},
-        "sheetName": {"__rl": true, "value": "jobs", "mode": "name"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "={{ $('Set Job Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Job Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"},
         "filtersUI": {
           "values": [{"lookupColumn": "job_id", "lookupValue": "={{ $json.job_id }}"}]
         },

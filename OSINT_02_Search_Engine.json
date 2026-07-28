@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input=$input.first().json;const job_id=input.job_id||'unknown';let entities=input.entities;if(typeof entities==='string'){try{entities=JSON.parse(entities);}catch(e){entities={};}}entities=entities||{};const service=entities.service||'услуга';const region=entities.region||'Россия';const budget_min=entities.budget_min||0;const budget_max=entities.budget_max||999999999;let keywordsList=[];if(Array.isArray(entities.keywords)){keywordsList=entities.keywords;}else if(typeof entities.keywords==='string'&&entities.keywords){keywordsList=entities.keywords.split(',').map(k=>k.trim());}const queries=[];const platforms=[{template:`site:avito.ru \"${service}\" ${region}`,source:'avito.ru'},{template:`site:youla.ru \"${service}\" ${region}`,source:'youla.ru'},{template:`site:vk.com ${service} ищу ${region}`,source:'vk.com'},{template:`site:t.me ${service} ${region}`,source:'t.me'},{template:`\"${service}\" ${region} частное лицо ищу мастера`,source:'general'},{template:`\"${service}\" ${region} нужен специалист заказ`,source:'general'}];for(const p of platforms){queries.push({query:p.template,source_platform:p.source,region:region,job_id:job_id,service:service,budget_min:budget_min,budget_max:budget_max});}for(const kw of keywordsList.slice(0,2)){queries.push({query:`\"${kw}\" ${service} ${region} заказать`,source_platform:'general',region:region,job_id:job_id,service:service,budget_min:budget_min,budget_max:budget_max});}return queries.map(q=>({json:q}));"
+        "jsCode": "const input=$input.first().json;const job_id=input.job_id||'unknown';let entities=input.entities;if(typeof entities==='string'){try{entities=JSON.parse(entities);}catch(e){entities={};}}entities=entities||{};const service=entities.service||(entities.keywords?.length?entities.keywords.join(' '):'услуга');const region=entities.region||'Россия';const budget_min=entities.budget_min||0;const budget_max=entities.budget_max||999999999;let keywordsList=[];if(Array.isArray(entities.keywords)){keywordsList=entities.keywords;}else if(typeof entities.keywords==='string'&&entities.keywords){keywordsList=entities.keywords.split(',').map(k=>k.trim());}const queries=[];const platforms=[{template:`site:avito.ru \"${service}\" ${region}`,source:'avito.ru'},{template:`site:youla.ru \"${service}\" ${region}`,source:'youla.ru'},{template:`site:vk.com ${service} ищу ${region}`,source:'vk.com'},{template:`site:t.me ${service} ${region}`,source:'t.me'},{template:`\"${service}\" ${region} частное лицо ищу мастера`,source:'general'},{template:`\"${service}\" ${region} нужен специалист заказ`,source:'general'}];for(const p of platforms){queries.push({query:p.template,source_platform:p.source,region:region,job_id:job_id,service:service,budget_min:budget_min,budget_max:budget_max});}for(const kw of keywordsList.slice(0,2)){queries.push({query:`\"${kw}\" ${region} заказать`,source_platform:'general',region:region,job_id:job_id,service:service,budget_min:budget_min,budget_max:budget_max});}return queries.map(q=>({json:q}));"
       },
       "name": "Build Query Matrix",
       "type": "n8n-nodes-base.code",
@@ -224,6 +224,16 @@
     },
     {
       "parameters": {
+        "amount": 90
+      },
+      "name": "Wait for Scraping",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [288, 960],
+      "webhookId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "parameters": {
         "workflowId": {"__rl": true, "value": "viR4AZBaC4CFA4qx", "mode": "id"},
         "workflowInputs": {"mappingMode": "defineBelow", "value": {"job_id": "={{ $('Trigger').item.json.job_id }}", "entity_type": "lead"}},
         "options": {"waitForSubWorkflow": false}
@@ -231,7 +241,7 @@
       "name": "Run Analyst",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [288, 960]
+      "position": [512, 960]
     },
     {
       "parameters": {"assignments": {"assignments": [{"id": "1", "name": "status", "value": "skipped_duplicate", "type": "string"}]}, "options": {}},
@@ -251,7 +261,7 @@
   "connections": {
     "Trigger": {"main": [[{"node": "Build Query Matrix", "type": "main", "index": 0}]]},
     "Build Query Matrix": {"main": [[{"node": "Loop Queries", "type": "main", "index": 0}]]},
-    "Loop Queries": {"main": [[{"node": "Serper Search", "type": "main", "index": 0}], [{"node": "Run Analyst", "type": "main", "index": 0}]]},
+    "Loop Queries": {"main": [[{"node": "Serper Search", "type": "main", "index": 0}], [{"node": "Wait for Scraping", "type": "main", "index": 0}]]},
     "Serper Search": {"main": [[{"node": "Extract URLs", "type": "main", "index": 0}]]},
     "Extract URLs": {"main": [[{"node": "Filter Empty", "type": "main", "index": 0}]]},
     "Filter Empty": {"main": [[{"node": "Loop URLs", "type": "main", "index": 0}], [{"node": "Loop Queries", "type": "main", "index": 0}]]},
@@ -265,7 +275,8 @@
     "Append Lead": {"main": [[{"node": "Back to URL Loop", "type": "main", "index": 0}]]},
     "Back to URL Loop": {"main": [[{"node": "Loop URLs", "type": "main", "index": 0}]]},
     "Skip Duplicate": {"main": [[{"node": "Back to URL Loop", "type": "main", "index": 0}]]},
-    "Skip No Contacts": {"main": [[{"node": "Back to URL Loop", "type": "main", "index": 0}]]}
+    "Skip No Contacts": {"main": [[{"node": "Back to URL Loop", "type": "main", "index": 0}]]},
+    "Wait for Scraping": {"main": [[{"node": "Run Analyst", "type": "main", "index": 0}]]}
   },
   "settings": {}
 }

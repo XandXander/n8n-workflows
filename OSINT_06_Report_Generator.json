@@ -172,7 +172,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "report_id": "={{ 'rep_' + $randomUUID() }}",
+            "report_id": "={{ 'rep_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10) }}",
             "job_id": "={{ $('Set Vars').item.json.job_id }}",
             "created_at": "={{ new Date().toISOString() }}",
             "pdf_drive_url": "={{ $('Upload to Drive').first().json.webViewLink }}",
@@ -243,7 +243,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const html = $json.html || '<h1>TEST</h1>';\n\nconst binaryData = await this.helpers.prepareBinaryData(\n  Buffer.from(html, 'utf8'),\n  'index.html',\n  'text/html'\n);\n\nreturn [{\n  json: { ok: true },\n  binary: { 'index.html': binaryData }\n}];"
+        "jsCode": "const html = $json.html || '<h1>TEST</h1>';\n\nconst binaryData = await this.helpers.prepareBinaryData(\n  html,\n  'index.html',\n  'text/html'\n);\n\nreturn [{\n  json: { ok: true },\n  binary: { 'index.html': binaryData }\n}];"
       },
       "name": "Create HTML Binary",
       "type": "n8n-nodes-base.code",

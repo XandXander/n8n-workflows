@@ -143,7 +143,7 @@
     {
       "parameters": {
         "workflowId": {"__rl": true, "value": "O3Ke6qflNx8CL1x7", "mode": "id"},
-        "workflowInputs": {"mappingMode": "defineBelow", "value": {"operation": "upsert", "namespace": "leads", "text": "={{ $('Extract Contacts').item.json.title + ' ' + $('Extract Contacts').item.json.description }}", "metadata": "={{ { lead_id: $('Extract Contacts').item.json.lead_id, job_id: $('Extract Contacts').item.json.job_id, source_url: $('Extract Contacts').item.json.source_url, source_platform: $('Extract Contacts').item.json.source_platform } }}"}},
+        "workflowInputs": {"mappingMode": "defineBelow", "value": {"operation": "upsert", "namespace": "leads", "text": "={{ $('Extract Contacts').first().json.title + ' ' + $('Extract Contacts').first().json.description }}", "metadata": "={{ { lead_id: $('Extract Contacts').first().json.lead_id, job_id: $('Extract Contacts').first().json.job_id, source_url: $('Extract Contacts').first().json.source_url, source_platform: $('Extract Contacts').first().json.source_platform } }}"}},
         "options": {"waitForSubWorkflow": true}
       },
       "name": "Upsert to Pinecone",
@@ -160,22 +160,22 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "lead_id": "={{ $('Extract Contacts').item.json.lead_id }}",
-            "job_id": "={{ $('Extract Contacts').item.json.job_id }}",
-            "source_platform": "={{ $('Extract Contacts').item.json.source_platform }}",
-            "source_url": "={{ $('Extract Contacts').item.json.source_url }}",
-            "title": "={{ $('Extract Contacts').item.json.title }}",
-            "description": "={{ $('Extract Contacts').item.json.description }}",
-            "contact_phone": "={{ $('Extract Contacts').item.json.contact_phone }}",
-            "contact_tg": "={{ $('Extract Contacts').item.json.contact_tg }}",
-            "contact_email": "={{ $('Extract Contacts').item.json.contact_email }}",
-            "region": "={{ $('Extract Contacts').item.json.region }}",
-            "budget": "={{ $('Extract Contacts').item.json.budget }}",
-            "scraped_at": "={{ $('Extract Contacts').item.json.scraped_at }}",
-            "dedup_hash": "={{ $('Extract Contacts').item.json.dedup_hash }}",
+            "lead_id": "={{ $('Extract Contacts').first().json.lead_id }}",
+            "job_id": "={{ $('Extract Contacts').first().json.job_id }}",
+            "source_platform": "={{ $('Extract Contacts').first().json.source_platform }}",
+            "source_url": "={{ $('Extract Contacts').first().json.source_url }}",
+            "title": "={{ $('Extract Contacts').first().json.title }}",
+            "description": "={{ $('Extract Contacts').first().json.description }}",
+            "contact_phone": "={{ $('Extract Contacts').first().json.contact_phone }}",
+            "contact_tg": "={{ $('Extract Contacts').first().json.contact_tg }}",
+            "contact_email": "={{ $('Extract Contacts').first().json.contact_email }}",
+            "region": "={{ $('Extract Contacts').first().json.region }}",
+            "budget": "={{ $('Extract Contacts').first().json.budget }}",
+            "scraped_at": "={{ $('Extract Contacts').first().json.scraped_at }}",
+            "dedup_hash": "={{ $('Extract Contacts').first().json.dedup_hash }}",
             "pinecone_id": "={{ $json.vector_id || '' }}",
-            "total_score": "={{ $('Extract Contacts').item.json.total_score }}",
-            "status": "={{ $('Extract Contacts').item.json.status }}"
+            "total_score": "={{ $('Extract Contacts').first().json.total_score }}",
+            "status": "={{ $('Extract Contacts').first().json.status }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -224,7 +224,7 @@
     {
       "parameters": {
         "workflowId": {"__rl": true, "value": "viR4AZBaC4CFA4qx", "mode": "id"},
-        "workflowInputs": {"mappingMode": "defineBelow", "value": {"job_id": "={{ $('Trigger').item.json.job_id }}", "entity_type": "lead"}},
+        "workflowInputs": {"mappingMode": "defineBelow", "value": {"job_id": "={{ $('Trigger').first().json.job_id }}", "entity_type": "lead"}},
         "options": {"waitForSubWorkflow": false}
       },
       "name": "Run Analyst",

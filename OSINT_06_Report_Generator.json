@@ -256,13 +256,10 @@
       "main": [[{"node": "Set Vars", "type": "main", "index": 0}]]
     },
     "Set Vars": {
-      "main": [
-        [{"node": "Read Job", "type": "main", "index": 0}],
-        [{"node": "Read Qualified Entities", "type": "main", "index": 0}]
-      ]
+      "main": [[{"node": "Read Job", "type": "main", "index": 0}]]
     },
     "Read Job": {
-      "main": [[{"node": "Prepare Context", "type": "main", "index": 0}]]
+      "main": [[{"node": "Read Qualified Entities", "type": "main", "index": 0}]]
     },
     "Read Qualified Entities": {
       "main": [[{"node": "Prepare Context", "type": "main", "index": 0}]]

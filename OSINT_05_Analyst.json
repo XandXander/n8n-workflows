@@ -28,7 +28,7 @@
       "parameters": {
         "operation": "read",
         "documentId": {"__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id"},
-        "sheetName": {"__rl": true, "mode": "name", "value": "={{ $('Set Job Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Job Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "={{ $('Set Job Vars').first().json.entity_type === 'company' ? 'companies' : ($('Set Job Vars').first().json.entity_type === 'tender' ? 'tenders' : 'leads') }}"},
         "filtersUI": {
           "values": [{"lookupColumn": "job_id", "lookupValue": "={{ $json.job_id }}"}]
         },
@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "options": {"batchSize": 7}
+        "options": {"batchSize": 3}
       },
       "name": "Loop Entities",
       "type": "n8n-nodes-base.splitInBatches",
@@ -65,7 +65,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ model: 'deepseek-v4-flash', temperature: 0.2, max_tokens: 1500, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Ты — OSINT-аналитик, финально оценивающий сущность (лид, компанию или тендер) для приоритизации отдела продаж инженерно-строительного и IT холдинга. Используй только переданные данные, не придумывай факты.\\nНАШИ УСЛУГИ:\\n1. Проектирование инженерных систем (ОВиК, электрика, водоснабжение)\\n2. Монтаж и пусконаладка вентиляции, кондиционирования, отопления\\n3. Проектирование и монтаж фасадных систем\\n4. AI-агенты и автоматизация бизнес-процессов\\n5. Создание и разработка сайтов\\n6. Производство рекламных видео и графики\\n7. Техническое обслуживание инженерных систем\\n8. BIM-моделирование и 3D-проектирование\\n4 КРИТЕРИЯ ОЦЕНКИ (каждый от 0 до 100):\\n1. relevance_score — соответствие НАШИМ услугам:\\n   - 90-100: Прямой запрос на конкретную услугу из списка.\\n   - 60-89: Смежная потребность, можем участвовать.\\n   - 30-59: Отдалённо связано, нужна доп. проверка.\\n   - 0-29: Не связано с нашими услугами.\\n2. freshness_score — актуальность:\\n   - 90-100: Сегодня/вчера.\\n   - 60-89: Давность до 7 дней.\\n   - 30-59: Давность до 30 дней.\\n   - 0-29: Старше месяца или архив.\\n   (Если дата неизвестна — ставь 40).\\n3. solvency_score — платёжеспособность (оценивай по-разному):\\n   - Компания: revenue, employees, статус юрлица (не банкрот).\\n   - Тендер: бюджет vs рыночная цена, наличие обеспечения.\\n   - Частное лицо: детальность описания бюджета, площадка (Авито/Юла → 50, Telegram → 40, форум → 30).\\n   (Нет данных → ставь 30).\\n4. contactability_score — доступность для контакта:\\n   - 90-100: Телефон + email + Telegram.\\n   - 60-89: Телефон + email ИЛИ телефон + Telegram.\\n   - 30-59: Только один канал.\\n   - 0-29: Контактов нет.\\nПРАВИЛА ТЕКСТОВЫХ ПОЛЕЙ:\\n- matched_service: ОДНА услуга из нумерованного списка выше. Если нерелевантно — \"Нет подходящей\".\\n- why_relevant: РОВНО 3 предложения. 1) Что за сущность. 2) Какая потребность в наших услугах. 3) Почему стоит действовать сейчас.\\n- recommended_action: КОНКРЕТНОЕ действие с каналом и сроком (\"Позвонить сегодня +7...\", \"Написать в TG до вечера\"). Без абстракций. Если relevance_score < 30 — верни пустую строку \"\".\\n- first_message_draft: Персонализированное первое сообщение (2-4 предложения) под канал (Telegram - коротко; Email - официально; Телефон - скрипт). БЕЗ штампов \"Здравствуйте, меня зовут...\". Начинай сразу с контекста. Если relevance_score < 30 или контактов нет — верни пустую строку \"\".\\nВерни СТРОГО валидный JSON по этой структуре:\\n{\\n  \"relevance_score\": number,\\n  \"freshness_score\": number,\\n  \"solvency_score\": number,\\n  \"contactability_score\": number,\\n  \"matched_service\": \"string\",\\n  \"why_relevant\": \"string\",\\n  \"recommended_action\": \"string\",\\n  \"first_message_draft\": \"string\"\\n}' }, { role: 'user', content: ($json !== undefined ? JSON.stringify($json).slice(0, 6000) : '{}') } ] }) }}",
-        "options": {"timeout": 60000, "retryOnFail": true, "maxTries": 3, "retryWaitTime": 2000}
+        "options": {"timeout": 60000}
       },
       "name": "DeepSeek All Scores",
       "type": "n8n-nodes-base.httpRequest",
@@ -82,7 +82,7 @@
       "typeVersion": 1.1,
       "position": [1344, 0],
       "webhookId": "1ba0f107-b834-4d6e-a573-a25f014bb6cd",
-      "disabled": true
+      "disabled": false
     },
     {
       "parameters": {
@@ -97,11 +97,11 @@
       "parameters": {
         "operation": "update",
         "documentId": {"__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id"},
-        "sheetName": {"__rl": true, "mode": "name", "value": "={{ $('Set Job Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Job Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "={{ $('Set Job Vars').first().json.entity_type === 'company' ? 'companies' : ($('Set Job Vars').first().json.entity_type === 'tender' ? 'tenders' : 'leads') }}"},
         "columns": {
           "mappingMode": "autoMapInputData",
           "value": {},
-          "matchingColumns": ["={{ $('Set Job Vars').item.json.entity_type === 'company' ? 'company_id' : ($('Set Job Vars').item.json.entity_type === 'tender' ? 'tender_id' : 'lead_id') }}"],
+          "matchingColumns": ["={{ $('Set Job Vars').first().json.entity_type === 'company' ? 'company_id' : ($('Set Job Vars').first().json.entity_type === 'tender' ? 'tender_id' : 'lead_id') }}"],
           "schema": [
             {"id": "lead_id", "displayName": "lead_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
             {"id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
@@ -161,8 +161,8 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "job_id": "={{ $('Set Job Vars').item.json.job_id }}",
-            "entity_type": "={{ $('Set Job Vars').item.json.entity_type }}"
+            "job_id": "={{ $('Set Job Vars').first().json.job_id }}",
+            "entity_type": "={{ $('Set Job Vars').first().json.entity_type }}"
           },
           "matchingColumns": [],
           "schema": [],
@@ -194,6 +194,9 @@
       ]
     },
     "DeepSeek All Scores": {
+      "main": [[{"node": "Rate Limit Wait", "type": "main", "index": 0}]]
+    },
+    "Rate Limit Wait": {
       "main": [[{"node": "Parse Scores", "type": "main", "index": 0}]]
     },
     "Parse Scores": {

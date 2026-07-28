@@ -40,8 +40,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [288, 1168],
-      "credentials": {"httpHeaderAuth": {"id": "utDIwjM5qgsLEmjJ", "name": "serper.dev API"}},
-      "onError": "continueRegularOutput"
+      "credentials": {"httpHeaderAuth": {"id": "utDIwjM5qgsLEmjJ", "name": "serper.dev API"}}
     },
     {
       "parameters": {

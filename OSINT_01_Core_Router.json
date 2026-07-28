@@ -286,7 +286,7 @@
       "position": [7536, 1648]
     },
     {
-      "parameters": {"chatId": "={{ $json.chat_id }}", "text": "=OK", "additionalFields": {"parse_mode": "Markdown"}},
+      "parameters": {"chatId": "={{ $json.chat_id }}", "text": "=✅ _Задача принята!_\n\n🆔 Job ID: `{{ $json.job_id }}`\n📋 Тип: `{{ $json.intent }}`\n🎯 Уверенность: {{ Math.round($json.confidence * 100) }}%\n\nОтчёт придёт через 3-10 минут.", "additionalFields": {"parse_mode": "Markdown"}},
       "name": "Send Confirmation",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,

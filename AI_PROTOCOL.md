@@ -45,8 +45,14 @@
 1. AI Engineer читает актуальный JSON через `read_workflow_file`.
 2. Вносит изменения в JSON.
 3. Записывает через `write_workflow_file`.
-4. Деплоит через `deploy_workflow` (PUT на сервер + Git commit + push).
-5. Обновляет WORKFLOW_MAP.md при изменении структуры.
+4. Вызывает `deploy_workflow`, который:
+   - читает корневое поле `id` из GitHub-файла workflow;
+   - формирует endpoint `https://xandai.ru/api/v1/workflows/{workflow_id}`;
+   - создаёт update payload без корневых полей `id`, `versionId`, `active`, `createdAt`, `updatedAt`, `shared`, `tags`, `triggerCount`, `pinData`, `meta`;
+   - выполняет `PUT` в n8n Public API v1;
+   - после успешного `PUT` выполняет `git add`, commit и push при наличии изменений.
+5. При ошибке `PUT` не считает изменение успешно задеплоенным.
+6. Обновляет `WORKFLOW_MAP.md` при изменении структуры workflow.
 
 ### Создание документа
 1. AI Engineer создаёт документ.

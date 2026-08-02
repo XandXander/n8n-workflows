@@ -72,4 +72,15 @@ osint-platform/
 
 ## GitHub = Single Source of Truth
 
-Все изменения workflow должны проходить через Git. Процесс: валидация → PUT на сервер → commit + push.
+Все изменения существующих workflow выполняются через `n8n_workflow_manager`.
+
+Канонический процесс:
+
+1. Прочитать актуальный GitHub-файл workflow.
+2. Провести валидацию и записать изменение.
+3. Получить `workflow_id` из корневого поля `id`.
+4. Сформировать очищенный update payload.
+5. Выполнить `PUT https://xandai.ru/api/v1/workflows/{workflow_id}`.
+6. После успешного `PUT` выполнить Git commit и push при наличии изменений.
+
+GitHub остаётся SSOT, а успешный ответ n8n Public API подтверждает deployment на сервер.

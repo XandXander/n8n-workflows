@@ -25,8 +25,8 @@
 | ADR-006 | Gotenberg 8 для генерации PDF | IMPLEMENTED | OSINT_06 | ERR-010 |
 | ADR-007 | prepareBinaryData для HTML→binary (Gotenberg) | IMPLEMENTED | OSINT_06 | ERR-006, ERR-010 |
 | ADR-008 | Sandbox-safe код (отказ от Buffer, crypto, $now) | IMPLEMENTED | Все Code-узлы | ERR-006 |
-| ADR-009 | Public API v1 n8n вместо внутреннего REST | IMPLEMENTED | n8n_git_manager | ERR-012 |
-| ADR-010 | PUT метод для деплоя workflow | IMPLEMENTED | n8n_git_manager | ERR-012, ERR-013 |
+| ADR-009 | Public API v1 n8n вместо внутреннего REST | IMPLEMENTED | n8n_workflow_manager | ERR-012 |
+| ADR-010 | PUT deployment contract для обновления workflow | IMPLEMENTED | n8n_workflow_manager | ERR-012, ERR-013 |
 | ADR-011 | Retry-политика для LLM API (DeepSeek) | IMPLEMENTED | OSINT_01, OSINT_05 | ERR-016 |
 | ADR-012 | Отключение Firecrawl для защищённых целей | IMPLEMENTED | OSINT_02 | ERR-005 |
 | ADR-013 | Удаление оператора site: из Serper-запросов | IMPLEMENTED | OSINT_02 | NONE |
@@ -40,6 +40,7 @@
 | ADR-021 | Convert to File для HTML → Gotenberg | SUPERSEDED | OSINT_06 | ERR-010 |
 | ADR-022 | Google AI Studio для доступа к Gemini-моделям | IMPLEMENTED | Внешние API | NONE |
 | ADR-023 | Отказ от retry на 429 от Groq (continueRegularOutput) | IMPLEMENTED | OSINT_01, OSINT_03 | NONE |
+| ADR-024 | Формальные профили workflow JSON | ACCEPTED | Workflow JSON, n8n_workflow_manager, standards | ERR-012, ERR-013 |
 
 ---
 
@@ -184,27 +185,48 @@ ADR-021 (Convert to File)
 ### ADR-009 — Public API v1 n8n вместо внутреннего REST
 
 **Status:** IMPLEMENTED
-**Date:** Июль 2026
-**Affected workflows/components:** n8n_git_manager
+**Affected workflows/components:** `n8n_workflow_manager`
 **Related errors:** ERR-012
 
 #### Decision
-Маршруты: `/rest/workflows` → `/api/v1/workflows/{id}`. Авторизация: `X-N8N-API-KEY` [20].
+Для программного обновления workflow использовать n8n Public API v1:
 
-#### Alternatives Considered
-- Эмуляция браузерной сессии (REJ-002) [20].
+`PUT https://xandai.ru/api/v1/workflows/{workflow_id}`
+
+Авторизация выполняется существующим заголовком `X-N8N-API-KEY`. Внутренний маршрут `/rest/workflows` в deployment pipeline не используется.
+
+#### Implementation Evidence
+Решение реализовано в фактическом коде `n8n_workflow_manager`.
 
 ---
 
-### ADR-010 — PUT метод для деплоя workflow
+### ADR-010 — PUT deployment contract для обновления workflow
 
 **Status:** IMPLEMENTED
-**Date:** Июль 2026
-**Affected workflows/components:** n8n_git_manager
+**Affected workflows/components:** `n8n_workflow_manager`
 **Related errors:** ERR-012, ERR-013
 
+#### Context
+GitHub-файл workflow содержит корневой `id`, необходимый для определения существующего workflow на сервере. Серверные и read-only поля не должны входить в update payload.
+
 #### Decision
-PUT для полного обновления схемы. Чёрный список полей: `id, versionId, active, createdAt, updatedAt, shared, tags, triggerCount, pinData, meta`.
+Для обновления существующего workflow:
+
+1. Прочитать `workflow_id` из корневого поля `id` GitHub-файла.
+2. При отсутствии `id` прекратить deployment с ошибкой.
+3. Сформировать endpoint `https://xandai.ru/api/v1/workflows/{workflow_id}`.
+4. Создать update payload и удалить из его корня:
+   `id`, `versionId`, `active`, `createdAt`, `updatedAt`, `shared`, `tags`, `triggerCount`, `pinData`, `meta`.
+5. Выполнить HTTP `PUT`.
+6. Только после успешного `PUT` выполнить `git add`, commit и push при наличии изменений.
+
+#### Scope
+ADR не изменяет API-ключи, credential IDs, автоматическую подстановку credentials или autofix-механику `n8n_workflow_manager`.
+
+#### Consequences
+- GitHub-файл существующего workflow должен сохранять корневой `id`.
+- Корневой `id` используется в URL, но не входит в тело `PUT`.
+- Git commit не является доказательством успешного deployment без успешного ответа n8n API.
 
 ---
 
@@ -346,6 +368,75 @@ Retry при 429 сжигает квоту. `onError: "continueRegularOutput"` �
 
 ---
 
+### ADR-024 — Формальные профили workflow JSON
+
+**Status:** ACCEPTED
+**Date:** 2026-08-01
+**Decision owner:** Principal Architect
+**Affected workflows/components:** Все workflow JSON, n8n_workflow_manager, n8n_schema.md, node_templates.md
+**Related ADR:** ADR-009, ADR-010
+**Related errors:** ERR-012, ERR-013
+**Implementation status:** NOT IMPLEMENTED (ожидается обновление стандартов и исправление дублированного `id`)
+
+#### Context
+В репозитории сосуществуют несколько JSON-артефактов workflow с разными правилами полей. Фактические данные показали смешанное состояние: 64% узлов имеют `nodes[].id` (UUID), 12% имеют короткие ID, 36% не имеют `nodes[].id` вовсе. Документация `n8n_schema.md` содержала утверждения, противоречащие GitHub-файлам. Требуется формализация контрактов.
+
+#### Decision
+
+##### Profile A — GITHUB_CANONICAL_WORKFLOW (APPROVED)
+
+Для **существующего** workflow:
+- Корневой `id`: **REQUIRED** — используется `n8n_workflow_manager` для формирования update endpoint.
+- Корневой ключ `id` встречается **ровно один раз**. Дублированные JSON-ключи запрещены.
+- `nodes[].id`: **PRESERVE IF PRESENT**.
+- При наличии `nodes[].id` должен быть непустым и уникальным в пределах workflow.
+- Node ID — непрозрачная строка. UUID и минимальная длина не требуются.
+- Connections используют `name` узла, не `id`.
+- Server-managed поля (`createdAt`, `updatedAt`, `shared`, `triggerCount`) не сохраняются в GitHub.
+- `active`, `versionId`, `pinData`, `meta`, `tags`, `nodeGroups` — сохраняются при наличии.
+- Перед update требуется sanitation (см. Profile C).
+- Для **нового** workflow (до первого создания): корневой `id` отсутствует. Создание выполняется вручную через UI с последующим экспортом.
+
+##### Profile B — CREATE_PAYLOAD (NOT IMPLEMENTED)
+
+POST-механизм отсутствует. Состав payload не определяется. Новый workflow создаётся вручную через n8n UI → экспорт → добавление в GitHub.
+
+##### Profile C — UPDATE_PAYLOAD (APPROVED)
+
+- HTTP method: `PUT`.
+- Endpoint: `https://xandai.ru/api/v1/workflows/{workflow_id}`.
+- `workflow_id` читается из корневого `id` Profile A (GitHub-файл).
+- Корневой `id` удаляется из тела запроса.
+- Blacklist корневых полей (удаляются перед PUT):
+  `id`, `versionId`, `active`, `createdAt`, `updatedAt`, `shared`, `tags`, `triggerCount`, `pinData`, `meta`.
+- `nodes[].id`: **НЕ УДАЛЯЕТСЯ**. Сохраняется, если присутствует.
+- Credentials: автоматическая подстановка до PUT, не затрагивается sanitation.
+- `settings`, `connections`, `name`, `nodeGroups` — сохраняются в теле.
+- GitHub canonical JSON не является готовым update payload без sanitation.
+
+##### Profile D — SERVER_RESPONSE_OR_EXPORT (REQUIRES EVIDENCE)
+
+Не утверждён. Требуется `GET /api/v1/workflows/{id}` для:
+- Подтверждения генерации сервером `nodes[].id` для узлов без них.
+- Документирования server-managed полей в ответе.
+- Сравнения server node IDs с GitHub node IDs.
+
+#### Consequences
+- **Positive:** устранение противоречий; чёткие правила для каждого профиля; документированное смешанное состояние `nodes[].id`.
+- **Negative:** Profile D остаётся неподтверждённым; create-механизм не реализован.
+- **Risks:** неизвестно, перезаписывает ли сервер `nodes[].id` при PUT. Если да — короткие ID в OSINT_04 могут быть заменены на UUID.
+
+#### Implementation Checklist
+- [ ] Обновить `n8n_schema.md` — исправить blacklist и правила `nodes[].id`.
+- [ ] Обновить `node_templates.md` — правило `nodes[].id`.
+- [ ] Обновить `docs/ARCHITECTURE.md` — строка о JSON profiles.
+- [ ] Добавить ADR-024 в `docs/DECISIONS_DRAFT.md`.
+- [ ] Исправить дублированный корневой `id` в `OSINT_06_Report_Generator.json`.
+- [ ] Выполнить `GET /api/v1/workflows/{id}` для Profile D или исключить из scope.
+- [ ] Статус `IMPLEMENTED` после выполнения всех пунктов.
+
+---
+
 ## Superseded and Deprecated Decisions
 
 ### ADR-021 — Convert to File для HTML → Gotenberg
@@ -377,10 +468,12 @@ Retry при 429 сжигает квоту. `onError: "continueRegularOutput"` �
 - REJ-001: `$items()`.
 - Разрешение: ADR-005 принято, $items() — технический долг.
 
-### DC-02: PUT vs PATCH для деплоя
-- ENVIRONMENT.md: PATCH.
-- DECISIONS7.md: PUT (ADR-010).
-- Разрешение: PUT — текущий метод.
+### DC-02: PUT vs PATCH для деплоя — RESOLVED
+
+- **Подтверждённый источник:** фактический код `n8n_workflow_manager`.
+- **Решение:** `PUT https://xandai.ru/api/v1/workflows/{workflow_id}`.
+- **ADR:** ADR-010 — IMPLEMENTED.
+- Упоминания `PATCH` удалены из актуальной документации.
 
 ### DC-03: HTML в бинарный файл для Gotenberg
 - ADR-021: Convert to File.

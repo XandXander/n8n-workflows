@@ -118,7 +118,7 @@ flowchart LR
 | **LLM-as-judge for scoring** | OSINT_05 uses DeepSeek to score every entity on 4 axes | NONE |
 | **Report as separate workflow** | OSINT_06 is an independent workflow triggered by OSINT_05 | NONE |
 | **Utility workflow for cross-cutting concerns** | OSINT_08 handles STT, PDF, logging, throttling | NONE |
-| **GitHub as SSOT for workflow definitions** | deploy_workflow tool pushes JSON to Git | NONE |
+| **GitHub as SSOT for workflow definitions** | `n8n_workflow_manager` читает целевой workflow ID из GitHub-файла, выполняет sanitized `PUT` в n8n Public API v1 и после успешного обновления фиксирует изменение через commit + push | ADR-009, ADR-010 |
 
 ---
 
@@ -797,4 +797,27 @@ Key gaps requiring immediate verification:
 - [ ] End-to-end execution test
 - [ ] Execution log review
 - [ ] Проверка работы OSINT_08 notify/throttle
-```
+
+---
+
+## 29. Workflow JSON Artifact Profiles
+
+**Compatibility baseline:** n8n 2.32.7  
+**Decision:** ADR-024
+
+Workflow JSON разделяется на четыре профиля:
+
+| Profile | Purpose | Status |
+|---|---|---|
+| Profile A | GitHub canonical representation of an existing workflow | APPROVED |
+| Profile B | POST/create payload | NOT IMPLEMENTED |
+| Profile C | Sanitized PUT update payload | APPROVED |
+| Profile D | Server response/export | REQUIRES EVIDENCE |
+
+Для существующего Profile A корневой `id` обязателен и должен встречаться ровно один раз.
+
+`nodes[].id` имеет правило `PRESERVE IF PRESENT`: существующие IDs сохраняются, отсутствующие не генерируются автоматически. Короткие и non-UUID IDs допустимы.
+
+Profile C формируется из Profile A. Workflow ID передаётся в endpoint, а server-managed root fields удаляются из body согласно ADR-010 и ADR-024.
+
+Profile D не блокирует текущий update pipeline и должен быть проверен read-only способом на n8n 2.32.7.

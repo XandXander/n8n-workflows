@@ -7,10 +7,12 @@
 
 ## ⚠️ КРИТИЧЕСКИЕ ПРАВИЛА ДЛЯ LLM (DEPLOYMENT & API)
 При генерации скриптов автоматизации, деплоя, cURL-запросов или CI/CD пайплайнов для этой среды строго соблюдай следующие параметры:
-1. **Метод обновлений воркфлоу:** Используй только метод **PATCH** (официальный метод Public API v1).
-2. **API Endpoint:** `https://xandai.ru{id}`
-3. **Заголовок авторизации:** `X-N8N-API-KEY: <REDACTED>` (никогда не выводи реальный ключ в чат).
-4. **Запрещенные поля (Read-only):** При отправке PATCH-запроса для обновления воркфлоу полностью удаляй из тела JSON следующие поля: `id`, `versionId`, `active`, `createdAt`, `updatedAt`, `shared`, `tags`, `triggerCount`, `pinData`. Если их отправить, API n8n вернет ошибку.
+1. **Метод обновления существующего workflow:** `PUT`.
+2. **API endpoint:** `https://xandai.ru/api/v1/workflows/{workflow_id}`.
+3. **Workflow ID:** берётся из корневого поля `id` GitHub-файла workflow. При отсутствии корневого `id` обновление не выполняется.
+4. **Заголовок авторизации:** `X-N8N-API-KEY: <REDACTED>`; фактическое значение ключа не включать в документацию или сообщения.
+5. **Формирование update payload:** перед `PUT` удалить корневые поля `id`, `versionId`, `active`, `createdAt`, `updatedAt`, `shared`, `tags`, `triggerCount`, `pinData`, `meta`.
+6. Корневой `id` используется только для формирования endpoint и не отправляется в теле update-запроса.
 
 ---
 
@@ -84,12 +86,14 @@ Business logic is documented separately in `PROJECT_KNOWLEDGE.md`.
 
 | Parameter | Value |
 |---|---|
-| **API Endpoint** | `https://xandai.ru/api/v1/workflows` |
+| **API collection endpoint** | `https://xandai.ru/api/v1/workflows` |
+| **Update endpoint** | `https://xandai.ru/api/v1/workflows/{workflow_id}` |
+| **Workflow ID source** | Корневое поле `id` GitHub-файла workflow |
+| **HTTP Method for Updates** | **PUT** |
 | **Authentication Header** | `X-N8N-API-KEY` |
-| **HTTP Method for Updates** | **PATCH** |
+| **Root fields removed from update payload** | `id, versionId, active, createdAt, updatedAt, shared, tags, triggerCount, pinData, meta` |
 | **API Enabled** | `N8N_API_ENABLED=true` |
 | **Active API Key** | `<REDACTED>` |
-| **Read-only fields (не отправлять при обновлении)** | `id, versionId, active, createdAt, updatedAt, shared, tags, triggerCount, pinData` |
 
 ---
 
@@ -99,8 +103,11 @@ Business logic is documented separately in `PROJECT_KNOWLEDGE.md`.
 |---|---|
 | **Validator** | `n8n-workflow-validator` (глобально, схема соответствует n8n 2.x) |
 | **Validation check** | Синтаксис, структура nodes/connections, запрещённые поля |
-| **Deployment method** | PATCH-запрос к `/api/v1/workflows/{id}` |
-| **Post-deploy** | Git commit + push (при наличии изменений) |
+| **Deployment method** | `PUT https://xandai.ru/api/v1/workflows/{workflow_id}` |
+| **Workflow ID** | Читается из корневого поля `id` файла до очистки payload |
+| **Payload sanitation** | Перед `PUT` удаляются корневые read-only/server-managed поля |
+| **Post-deploy** | Только после успешного `PUT`: `git add` → commit → push при наличии изменений |
+| **Failed deploy** | При неуспешном `PUT` изменения не должны фиксироваться как успешно задеплоенные |
 
 ---
 
@@ -178,4 +185,4 @@ The environment is strictly optimized for 1 production instance of n8n, 1 worker
 - **Git Repository:** `E:\РАБОТА ДОМА\WEB\N8N BEGET\FOREIGN\DEEPSEEK\GIT`
 - **Workflow Validator Path:** `C:\Users\user\AppData\Roaming\npm` (модуль `n8n-workflow-validator`, схема n8n 2.x)
 - **Local API Key:** `<REDACTED>`
-- **Deployment pipeline:** Validation -> PATCH to API -> Git commit + push
+- **Deployment pipeline:** Validation → prepare sanitized update payload → PUT to `/api/v1/workflows/{workflow_id}` → on successful PUT: Git commit + push.

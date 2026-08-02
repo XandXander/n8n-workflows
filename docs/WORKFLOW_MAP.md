@@ -1,992 +1,1433 @@
 # WORKFLOW_MAP.md
 
-## Purpose
-Единая карта всех восьми workflow OSINT-платформы XandAI на базе n8n. Документ восстанавливает фактическое состояние каждого workflow по состоянию на 2026-07-31: триггеры, контракты данных, внешние зависимости, вызовы, persistent storage, критические точки отказа и статус верификации.
+> **Status:** APPROVED  
+> **Evidence baseline:** Git commit `8420e423c98dcb1d11fa02f554e0674b9705bb81`  
+> **Compatibility baseline:** n8n 2.32.7  
+> **Source of truth:** `workflows/OSINT_*.json` in GitHub  
+> **Live active/published state:** UNKNOWN unless explicitly supported by separate live evidence
 
-## Source of Truth
-- Актуальные JSON-экспорты из продакшен-сервера n8n (xandai.ru) по состоянию на 2026-07-31.
-- `ERROR_HISTORY_DRAFT.md` и `DECISIONS_DRAFT.md` — черновые консолидированные документы.
-- История чатов Open WebUI с DeepSeek v4 Pro (июль 2026).
+* * *
 
-## Platform Overview
-- **8 микро-воркфлоу** на одном инстансе n8n, self-hosted на VPS Beget.
-- Межворкфлоу-коммуникация: `Execute Workflow` (нативная нода n8n).
-- Центральная шина данных: Google Sheets (листы `jobs`, `leads`, `companies`, `tenders`, `reports`, `logs`).
-- Векторное хранилище: Pinecone (через OSINT_07).
-- PDF-генерация: Gotenberg 8 (внутренний Docker-контейнер).
-- Основной LLM-провайдер: DeepSeek (flash/pro).
-- Поисковые API: Serper, Tavily.
-- Скрейпинг: Firecrawl (ограниченно).
-- STT: Groq Whisper.
+## 1. Purpose
 
-## Workflow Inventory
+This document is the canonical structural map of the eight n8n workflows in the OSINT Platform.
+It records only what is supported by:
 
-| ID | Workflow | Purpose | Trigger | Calls | Called by | Status |
-|----|----------|---------|---------|-------|-----------|--------|
-| WF1 | OSINT_01_Core_Router | Приём из Telegram/Email, классификация intent, маршрутизация | Telegram Trigger + IMAP Trigger | WF2, WF3, WF4, WF5, WF8 | — | PRESENT |
-| WF2 | OSINT_02_Search_Engine | Поиск частных заказчиков/лидов (B2C/B2B) | Execute Workflow Trigger | WF5, WF7 | WF1 | PRESENT |
-| WF3 | OSINT_03_Company_Intel | Анализ компаний (сайт, DaData, новости, LLM) | Execute Workflow Trigger | WF5, WF7 | WF1 | PRESENT |
-| WF4 | OSINT_04_Tender_Intel | Поиск тендеров (Serper, Tavily, LLM-оценка) | Execute Workflow Trigger | WF5, WF7 | WF1 | PRESENT |
-| WF5 | OSINT_05_Analyst | Скоринг найденных сущностей | Execute Workflow Trigger | WF6 | WF2, WF3, WF4, WF1 | PRESENT |
-| WF6 | OSINT_06_Report_Generator | Генерация Markdown → HTML → PDF, доставка | Execute Workflow Trigger | — | WF5 | PRESENT |
-| WF7 | OSINT_07_Pinecone_Memory | Векторное хранилище (upsert/query/delete) | Execute Workflow Trigger | — | WF2, WF3, WF4 | PRESENT |
-| WF8 | OSINT_08_Utilities | Служебные операции (STT, PDF, логирование, throttle) | Execute Workflow Trigger | — | WF1 | PRESENT |
+*   root workflow fields;
+    
+*   `nodes`;
+    
+*   `connections`;
+    
+*   node parameters;
+    
+*   explicit `Execute Workflow` input mappings;
+    
+*   explicit storage and external-service references.
+    
 
-## Global Dependency Graph
+GitHub presence does not prove that a workflow is active or published on the n8n server.
+
+* * *
+
+## 2. Workflow Inventory
+
+| WF | Exact workflow name | Root ID | Entry point | Called by | Calls | GitHub state |
+| --- | --- | --- | --- | --- | --- | --- |
+| WF1 | `OSINT_01_Core_Router` | `WtkTm484CwBpahGt` | Telegram Trigger; Email IMAP Trigger | External Telegram and email events | WF2, WF3, WF4, WF5, WF8 | PRESENT; live state UNKNOWN |
+| WF2 | `OSINT_02_Search_Engine` | `fgf3zI8fRJhkqlHC` | Execute Workflow Trigger `Trigger` | WF1 | WF5, WF7 | PRESENT; live state UNKNOWN |
+| WF3 | `OSINT_03_Company_Intel` | `gxCPpkQkvqc0yWf8` | Execute Workflow Trigger `Start` | WF1 | WF5, WF7 | PRESENT; live state UNKNOWN |
+| WF4 | `OSINT_04_Tender_Intel` | `zcpU6hLvcMl5RiUa` | Execute Workflow Trigger `Start` | WF1 | WF5, WF7 | PRESENT; live state UNKNOWN |
+| WF5 | `OSINT_05_Analyst` | `viR4AZBaC4CFA4qx` | Execute Workflow Trigger `Start` | WF1, WF2, WF3, WF4 | WF6 | PRESENT; live state UNKNOWN |
+| WF6 | `OSINT_06_Report_Generator` | `qXWixFd94G7Tfgaa` | Execute Workflow Trigger `Start` | WF5 | — | PRESENT; live state UNKNOWN |
+| WF7 | `OSINT_07_Pinecone_Memory` | `O3Ke6qflNx8CL1x7` | Execute Workflow Trigger `Start` | WF2, WF3, WF4 | — | PRESENT; live state UNKNOWN |
+| WF8 | `OSINT_08_Utilities` | `IR4oQQAYQgUwIUjJ` | Execute Workflow Trigger `Start` | WF1 for `stt` | — | PRESENT; live state UNKNOWN |
+
+* * *
+
+## 3. Confirmed Cross-Workflow Graph
+
 ```mermaid
 flowchart TD
-    TG[Telegram User] --> WF1
-    EM[Email User] --> WF1
-    WF1["OSINT_01_Core_Router"] -->|intent:search_private| WF2["OSINT_02_Search_Engine"]
-    WF1 -->|intent:search_b2b| WF2
-    WF1 -->|intent:company_analysis| WF3["OSINT_03_Company_Intel"]
-    WF1 -->|intent:tender_search| WF4["OSINT_04_Tender_Intel"]
-    WF1 -->|intent:site_analysis| WF5["OSINT_05_Analyst"]
-    WF1 -->|intent:deep_osint| WF2
-    WF1 -->|voice_file_id| WF8["OSINT_08_Utilities"]
-    WF2 -->|done| WF5
-    WF3 -->|done| WF5
-    WF4 -->|done| WF5
-    WF2 -->|check/upsert| WF7["OSINT_07_Pinecone_Memory"]
-    WF3 -->|upsert| WF7
-    WF4 -->|upsert| WF7
-    WF5 -->|done| WF6["OSINT_06_Report_Generator"]
-    WF6 -->|PDF| TG
-    WF6 -->|PDF| EM
-    WF6 -->|PDF| GD[Google Drive]
-    WF2 -->|write| GS[Google Sheets]
-    WF3 -->|write| GS
-    WF4 -->|write| GS
-    WF5 -->|read/update| GS
-    WF6 -->|read/write| GS
+    Telegram[Telegram] --> WF1[OSINT_01_Core_Router]
+    Email[Email IMAP] --> WF1
+
+    WF1 -->|STT, wait=true| WF8[OSINT_08_Utilities]
+
+    WF1 -->|search_private, wait=false| WF2[OSINT_02_Search_Engine]
+    WF1 -->|search_b2b, wait=false| WF2
+    WF1 -->|deep_osint, wait=false| WF2
+    WF1 -->|company_analysis, wait=false| WF3[OSINT_03_Company_Intel]
+    WF1 -->|tender_search, wait=false| WF4[OSINT_04_Tender_Intel]
+    WF1 -->|site_analysis, wait=false| WF5[OSINT_05_Analyst]
+
+    WF2 -->|query/upsert, wait=true| WF7[OSINT_07_Pinecone_Memory]
+    WF2 -->|outer loop done, wait=false| WF5
+
+    WF3 -->|upsert, wait=true| WF7
+    WF3 -->|after Append Company, wait=false| WF5
+
+    WF4 -->|upsert, wait=true| WF7
+    WF4 -->|Loop Tenders done, wait=false| WF5
+
+    WF5 -->|Loop Entities done, wait=false| WF6[OSINT_06_Report_Generator]
 ```
 
-## Shared Data Contracts
+### Confirmed sequence
 
-### `job_id`
-| Field | Type | Created by | Consumed by | Required | Notes |
-|-------|------|------------|-------------|----------|-------|
-| job_id | string | WF1 (Parse Intent) | WF2, WF3, WF4, WF5, WF6, WF8 | Yes | Формат: `job_{timestamp36}_{random8}`. Первичный ключ для всех листов Google Sheets. Пробелы/кавычки в значении ломают фильтры. |
+1.  WF1 writes the job row before routing to WF2, WF3, WF4 or WF5.
+    
+2.  WF1 dispatches search/company/tender/site-analysis workflows asynchronously.
+    
+3.  WF2 calls WF5 from the done-output of `Loop Queries`.
+    
+4.  WF3 calls WF5 after `Append Company`.
+    
+5.  WF4 calls WF5 from the done-output of `Loop Tenders`.
+    
+6.  WF5 calls WF6 from the done-output of `Loop Entities`.
+    
+7.  WF6 does not call another workflow.
+    
 
-### `entities`
-| Field | Type | Created by | Consumed by | Required | Notes |
-|-------|------|------------|-------------|----------|-------|
-| entities | object → string (JSON) | WF1 (Parse Intent) | WF2, WF3, WF4 | Yes | Сериализуется через JSON.stringify при передаче и записи в Sheets. Может прийти строкой — требуется двойной парсинг. Поля: service, region, keywords, budget_min, budget_max, target_url, target_inn, target_name. |
-| entities.service | string | WF1 | WF2, WF4 | Yes | Дефолт: 'услуга' (WF2), 'проектирование' (WF4) |
-| entities.region | string | WF1 | WF2, WF4 | Yes | Дефолт: 'Россия' |
+### People verification branch
 
-### `user_id` / `chat_id`
-| Field | Type | Created by | Consumed by | Required | Notes |
-|-------|------|------------|-------------|----------|-------|
-| user_id | string | WF1 (Normalize Input) | WF6 (Send Email) | No | Telegram user ID или email-адрес |
-| chat_id | string | WF1 (Normalize Input) | WF6 (Telegram Send PDF), WF1 (Send Confirmation) | No | Telegram chat ID |
+A dedicated people/person verification branch is absent.
+There is:
 
-### `source_platform`
-| Field | Type | Created by | Consumed by | Required | Notes |
-|-------|------|------------|-------------|----------|-------|
-| source_platform | string | WF2 (Build Query Matrix) | WF2 (Extract URLs, Append Lead) | No | Дефолт: 'general'. Теряется при ошибках в циклах. |
+*   no person-specific intent in WF1;
+    
+*   no person-check workflow;
+    
+*   no corresponding `Execute Workflow` connection;
+    
+*   no person-verification storage table.
+    
 
-### `entity_type`
-| Field | Type | Created by | Consumed by | Required | Notes |
-|-------|------|------------|-------------|----------|-------|
-| entity_type | string | WF2/WF3/WF4 (при вызове WF5) | WF5, WF6 | Yes | 'lead', 'company', 'tender'. Определяет имя листа Google Sheets. |
+`search_private` is a lead-search route, not an identity or people-verification route.
 
-### `status`
-| Field | Type | Created by | Consumed by | Required | Notes |
-|-------|------|------------|-------------|----------|-------|
-| status | string | WF1, WF2, WF5, WF6 | Google Sheets | Yes | WF1: 'processing'. WF5: 'qualified' (score≥60) / 'new'. WF6: 'done'. |
+* * *
 
-### `report_url`
-| Field | Type | Created by | Consumed by | Required | Notes |
-|-------|------|------------|-------------|----------|-------|
-| report_url | string | WF6 (Upload to Drive) | WF6 (Update Job Done) | No | Google Drive webViewLink. |
+## 4. Shared Storage Map
 
-## External Services Matrix
+### Google Sheets document
 
-| Service | Used by workflows | Purpose | Input | Output | Failure behavior |
-|---------|-------------------|---------|-------|--------|------------------|
-| DeepSeek API (flash) | WF1, WF4 | Intent classification, tender analysis | raw_text / tender data | JSON response | Retry 3×, timeout 45s. On fail → `intent:error` (WF1), continueRegularOutput (WF4) |
-| DeepSeek API (pro) | WF3, WF5, WF6 | Company analysis, scoring, MD report | entity data / context | JSON response | Retry 3×, timeout 120s. On fail → continueRegularOutput (WF5), silent fail (WF3) |
-| Serper API | WF2, WF3, WF4 | Google search | query string | organic results (JSON) | continueRegularOutput, empty array → 0 results |
-| Tavily API | WF4 | Tender search | query string | results (JSON) | continueRegularOutput |
-| Firecrawl API | WF2, WF3 | Web scraping | URL | markdown content | continueRegularOutput. Блокируется Cloudflare для Avito, Telegram, Zakupki |
-| Groq API (Whisper) | WF8 | STT (voice → text) | audio file (multipart) | text (JSON) | No retry. |
-| DaData API | WF3 | Company info by INN | INN string | suggestions (JSON) | continueRegularOutput |
-| Jina API | WF7 | Embeddings | text (≤8000 chars) | vector (1024-dim) | No retry. Returns error object. |
-| Pinecone API | WF7 | Vector upsert/query/delete | vectors/metadata | matches/upsertedCount | No retry. continueRegularOutput at callers. |
-| Gotenberg | WF6, WF8 | HTML → PDF | binary index.html | PDF binary | Timeout 120s. No retry — blocks report delivery. |
-| Google Sheets | WF1, WF2, WF3, WF4, WF5, WF6, WF8 | Operational data store | rows (append/update/read) | — | Не транзакционна. Риск гонки данных. Google API quota limits. |
-| Google Drive | WF6 | PDF storage | PDF binary | webViewLink | No explicit error handling. |
-| Telegram API | WF1, WF6, WF8 | Bot messaging, file download | chat_id, text/file | — | No retry on send. |
-| Yandex SMTP | WF6 | Email delivery | HTML email | — | No explicit error handling. |
-| IMAP (Email) | WF1 | Email trigger | — | email data | postProcessAction: "read". Custom config: ["UNSEEN"]. |
+All Google Sheets nodes reference the same document.
+| Sheet | Writers | Readers/updaters | Confirmed purpose |
+| --- | --- | --- | --- |
+| `jobs` | WF1 append | WF6 read and update | Job metadata and report completion |
+| `leads` | WF2 append | WF5 read/update; WF6 read | Private/B2B lead entities |
+| `companies` | WF3 append | WF5 read/update; WF6 read | Company entities |
+| `tenders` | WF4 append | WF5 read/update; WF6 read | Tender entities |
+| `reports` | WF6 append | — | Report metadata |
+| `logs` | WF8 append | — | Utility logging |
 
-## Persistent Storage
+### Confirmed columns written by each workflow
 
-### PostgreSQL (n8n internal)
-- Хранит execution data, credentials (зашифрованы), workflow definitions.
-- Не используется напрямую OSINT-логикой.
-
-### Redis (n8n internal)
-- Бэкенд очередей для n8n Worker.
-- Не используется напрямую OSINT-логикой.
-
-### Google Sheets
-- **Document ID:** `1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA`
-- **Листы:**
-  - `jobs` — WF1 (append), WF6 (read, update). Колонки: job_id, created_at, source, user_id, chat_id, raw_text, intent, entities, confidence, status, finished_at, report_url.
-  - `leads` — WF2 (append), WF5 (read, update). Колонки: lead_id, job_id, source_platform, source_url, title, description, contact_phone, contact_tg, contact_email, region, budget, scraped_at, dedup_hash, pinecone_id, total_score, status.
-  - `companies` — WF3 (append), WF5 (read, update). Колонки: company_id, job_id, name, inn, ogrn, website, industry, employees_est, revenue_est, tech_stack, contacts_json, news_summary, pain_points, why_relevant, recommended_pitch, total_score, scraped_at.
-  - `tenders` — WF4 (append), WF5 (read, update). Колонки: tender_id, job_id, platform, tender_number, title, budget, deadline, url, matched_service, win_probability, required_prerequisites, summary, relevance_score, total_score, scraped_at.
-  - `reports` — WF6 (append). Колонки: report_id, job_id, created_at, pdf_drive_url, md_content_short, email_sent.
-  - `logs` — WF8 (append). Колонки: ts, workflow, node, level, job_id, message, payload_short.
+`jobs`**, WF1 append**
+`job_id`, `created_at`, `source`, `user_id`, `chat_id`, `raw_text`, `intent`, `entities`, `confidence`, `status`.
+`jobs`**, WF6 update**
+`job_id`, `status`, `finished_at`, `report_url`, `row_number`.
+`leads`**, WF2 append**
+`lead_id`, `job_id`, `source_platform`, `source_url`, `title`, `description`, `contact_phone`, `contact_tg`, `contact_email`, `region`, `budget`, `scraped_at`, `dedup_hash`, `pinecone_id`, `total_score`, `status`.
+`companies`**, WF3 append**
+`company_id`, `job_id`, `name`, `inn`, `ogrn`, `website`, `industry`, `employees_est`, `revenue_est`, `tech_stack`, `contacts_json`, `social_links`, `news_summary`, `pain_points`, `why_relevant`, `recommended_pitch`, `total_score`, `scraped_at`.
+`tenders`**, WF4 append**
+`tender_id`, `job_id`, `platform`, `tender_number`, `title`, `budget`, `deadline`, `url`, `matched_service`, `win_probability`, `required_prerequisites`, `summary`, `relevance_score`, `total_score`, `scraped_at`.
+`reports`**, WF6 append**
+`report_id`, `job_id`, `created_at`, `pdf_drive_url`, `md_content_short`, `email_sent`.
+`logs`**, WF8 append**
+`ts`, `workflow`, `node`, `level`, `job_id`, `message`, `payload_short`.
 
 ### Pinecone
-- **Host:** `groq-osint-viwj8s6.svc.aped-4627-b74a.pinecone.io`
-- **Embedding model:** `jina-embeddings-v3`, task: retrieval.passage / retrieval.query, dimensions: 1024.
-- **Namespaces:** `leads`, `companies`, `tenders`.
-- **Операции:** upsert (с metadata: lead_id/company_id/tender_id, job_id, source_url, etc.), query (threshold filtering), delete.
+
+WF7 provides the confirmed operations:
+
+*   `upsert`;
+    
+*   `query`;
+    
+*   `delete`.
+    
+
+Current callers use namespaces:
+
+*   `leads`;
+    
+*   `companies`;
+    
+*   `tenders`.
+    
+
+Jina embeddings use:
+
+*   model `jina-embeddings-v3`;
+    
+*   dimensions `1024`;
+    
+*   task `retrieval.passage` for upsert;
+    
+*   task `retrieval.query` for query.
+    
 
 ### Google Drive
-- **Folder ID:** `1xm1Luua_anWS8hLghLJLg_MKZenQ1-SZ`
-- Назначение: хранение сгенерированных PDF-отчётов.
-
----
-
-## WF-01 — OSINT_01_Core_Router
-
-### Purpose
-Приём запросов из Telegram и Email, нормализация, классификация intent через DeepSeek v4-flash, запись задачи в Google Sheets, маршрутизация в соответствующий search workflow, отправка подтверждения пользователю.
-
-### Status
-PRESENT — активен на сервере, выполнение не проверено сквозным прогоном.
-
-### Trigger
-- **Telegram Trigger** (node: `Telegram Trigger`) — `updates: ["message","edited_message","callback_query"]`. Production webhook.
-- **Email IMAP Trigger** (node: `Email IMAP Trigger`) — `customEmailConfig: ["UNSEEN"]`, `forceReconnect: 60`, `postProcessAction: "read"`. После Filter Email (`subject contains "OSINT-AI"`).
-
-### Called By
-- Telegram users напрямую.
-- Email-клиенты (тема письма должна содержать "OSINT-AI").
-
-### Calls
-| Workflow | Node | Wait | On Error |
-|----------|------|------|----------|
-| OSINT_08_Utilities | Execute STT | true (waitForSubWorkflow) | — |
-| OSINT_02_Search_Engine | Execute Search Private | false | continueRegularOutput |
-| OSINT_02_Search_Engine | Execute Search B2B | false | continueRegularOutput |
-| OSINT_02_Search_Engine | Execute Deep OSINT | false | continueRegularOutput |
-| OSINT_03_Company_Intel | Execute Company Intel | false | continueRegularOutput |
-| OSINT_04_Tender_Intel | Execute Tender Intel | false | continueRegularOutput |
-| OSINT_05_Analyst | Execute Site Analysis | false | continueRegularOutput |
-
-### Input Contract
-| Field | Type | Required | Source | Notes |
-|-------|------|----------|--------|-------|
-| message / edited_message / callback_query | object | No | Telegram Trigger | Обрабатывается в Normalize Input |
-| subject + from | string | No | IMAP Trigger | Фильтруется: subject contains "OSINT-AI" |
-| raw_text | string | No | Google Sheets (ручной запуск) | — |
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| job_id | string | Parse Intent | WF2/WF3/WF4/WF5, Google Sheets (jobs) | Формат: `job_{timestamp36}_{random8}` |
-| intent | string | Parse Intent | Route by Intent | search_private, search_b2b, company_analysis, tender_search, site_analysis, deep_osint |
-| entities | object | Parse Intent | WF2/WF3/WF4/WF5 | Сериализуется в JSON для передачи |
-| confidence | number | Parse Intent | Check Parse Success | Порог: ≥0.3 |
-| source | string | Normalize Input | Is Telegram? | 'telegram', 'email', 'sheets' |
-| user_id | string | Normalize Input | Send Confirmation | Telegram user ID или email |
-| chat_id | string | Normalize Input | Send Confirmation, WF6 | Telegram chat ID |
-| status | string | Parse Intent | Google Sheets (jobs) | 'processing' |
-
-### Node Flow
-1. **Telegram Trigger** — Telegram Trigger — приём сообщений.
-2. **Email IMAP Trigger** — EmailReadImap — приём писем.
-3. **Filter Email** — IF — пропускает только письма с "OSINT-AI" в теме.
-4. **Normalize Input** — Code — нормализация: извлечение source, user_id, chat_id, raw_text, voice_file_id.
-5. **Has Voice?** — IF — `$json.voice_file_id isNotEmpty`.
-   - TRUE → **Execute STT** (→WF8, wait=true) → **Merge Voice Result** → **Merge After Voice**.
-   - FALSE → **Merge After Voice** (напрямую).
-6. **Merge After Voice** — Merge — объединение голосовой и текстовой веток.
-7. **Filter Length** — IF — `raw_text.length > 10`.
-   - TRUE → продолжение.
-   - FALSE → execution stops.
-8. **DeepSeek Intent Classifier** — HTTP Request (DeepSeek v4-flash) — классификация intent. Retry 3×, timeout 45s.
-9. **Parse Intent** — Code — парсинг JSON-ответа, генерация job_id. При пустом ответе → throw (retry).
-10. **Check Parse Success** — IF — `confidence >= 0.3`.
-    - TRUE → **Create Job Row** + параллельно на **Route by Intent**.
-    - FALSE → **Notify Admin**.
-11. **Create Job Row** — Google Sheets — запись в лист `jobs`.
-12. **Route by Intent** — Switch — 6 выходов по значению `intent`.
-    - `search_private` → Execute Search Private (→WF2).
-    - `search_b2b` → Execute Search B2B (→WF2).
-    - `company_analysis` → Execute Company Intel (→WF3).
-    - `tender_search` → Execute Tender Intel (→WF4).
-    - `site_analysis` → Execute Site Analysis (→WF5).
-    - `deep_osint` → Execute Deep OSINT (→WF2).
-13. **Is Telegram?** — IF — проверка `source === 'telegram'`.
-    - TRUE → **Send Confirmation** (Telegram).
-14. **Notify Admin** — Telegram — отправка alert при ошибке.
-
-### Data Transformations
-- **Parse Intent:** raw_text → {job_id, intent, entities, confidence}. Критическая точка: если `entities` — строка, требуется JSON.parse. Если не распарсилось → `entities: {}`.
-- **Route by Intent:** передаёт `job_id`, `entities` (JSON.stringify), `user_id`, `chat_id` во все Execute Workflow узлы.
-
-### External Dependencies
-- DeepSeek API (v4-flash): классификация intent.
-- Telegram Bot API: приём/отправка сообщений, загрузка голосовых файлов.
-- IMAP-сервер (Email): приём писем.
-- Google Sheets API: запись в `jobs`.
-- OSINT_08_Utilities: STT (через Execute Workflow).
-
-### Credentials Required
-- Telegram API
-- IMAP account
-- DeepSeek API (httpHeaderAuth)
-- Google Sheets OAuth2
-
-### Persistent Writes
-- Google Sheets `jobs`: append (job_id, created_at, source, user_id, chat_id, raw_text, intent, entities, confidence, status).
-
-### Error Handling
-- DeepSeek Intent Classifier: retry 3×, timeout 45s. При fail → throw в Parse Intent (пустой ответ).
-- Check Parse Success → FALSE: Notify Admin (Telegram).
-- Execute Workflow узлы: onError="continueRegularOutput" (не блокируют основной поток).
-- Has Voice? → FALSE: прямое продолжение без STT.
-- Filter Length → FALSE: тихая остановка (нет уведомления).
-
-### Known Failure Points
-- **ERR-002:** DeepSeek возвращает 400 без слова "json" в system prompt.
-- **ERR-003:** Префикс "OSINT-AI:" сбивает классификатор.
-- **ERR-016:** ECONNRESET при нестабильности API.
-- **ERR-001:** Потеря контекста при передаче entities как строки.
-- **In HR-015:** Create Job Row «съедал» данные до роутинга (исправлено — Route by Intent получает данные напрямую с Check Parse Success).
-
-### Related Decisions
-- ADR-002: DeepSeek flash/pro split.
-- ADR-011: Retry-политика для LLM API.
-- ADR-017: IMAP postProcessAction: "read".
-
-### Verification Evidence
-- JSON подтверждает структуру. Выполнение не проверено сквозным прогоном.
-
-### Open Questions
-- Подтверждён ли сквозной прогон WF1 → WF2 с реальными job_id?
-- Правильно ли обрабатываются callback_query от Telegram (инлайн-кнопки)?
-
----
-
-## WF-02 — OSINT_02_Search_Engine
-
-### Purpose
-Поиск частных заказчиков/лидов (B2C и B2B): генерация поисковых запросов, поиск через Serper, извлечение URL, скрейпинг через Firecrawl, извлечение контактов, дедупликация через Pinecone, запись в Google Sheets.
-
-### Status
-PRESENT — активен на сервере. Сквозной прогон до Append Lead не подтверждён.
-
-### Trigger
-- **Execute Workflow Trigger** (node: `Trigger`) — вызывается из WF1 с `job_id`, `entities`, `user_id`, `chat_id`. `inputSource: "passthrough"`.
-
-### Called By
-- WF1 (Core Router): intent search_private, search_b2b, deep_osint.
-
-### Calls
-| Workflow | Node | Wait | On Error |
-|----------|------|------|----------|
-| OSINT_05_Analyst | Run Analyst | false | — |
-| OSINT_07_Pinecone_Memory | Check Duplicate | true | continueRegularOutput |
-| OSINT_07_Pinecone_Memory | Upsert to Pinecone | true | continueRegularOutput |
-
-### Input Contract
-| Field | Type | Required | Source | Notes |
-|-------|------|----------|--------|-------|
-| job_id | string | Yes | WF1 | — |
-| entities | object/string | Yes | WF1 | Может быть строкой — требуется двойной парсинг в Build Query Matrix |
-| user_id | string | No | WF1 | — |
-| chat_id | string | No | WF1 | — |
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| lead_id | string | Extract Contacts | Google Sheets (leads), WF5 | — |
-| job_id | string | Build Query Matrix | Extract URLs, Extract Contacts, Append Lead | Сохраняется через $items() или putOutputInField |
-| source_platform | string | Build Query Matrix | Extract URLs, Append Lead | Дефолт: 'general' |
-| source_url | string | Extract URLs | Extract Contacts, Append Lead | URL найденной страницы |
-| title | string | Extract URLs | Extract Contacts, Append Lead | — |
-| contact_phone | string | Extract Contacts | Append Lead | — |
-| contact_tg | string | Extract Contacts | Append Lead | — |
-| contact_email | string | Extract Contacts | Append Lead | — |
-| dedup_hash | string | Extract Contacts | Append Lead, Pinecone | — |
-| total_score | number | Extract Contacts | Append Lead, WF5 | Дефолт: 0 (пересчитывается в WF5) |
-
-### Node Flow
-1. **Trigger** — Execute Workflow Trigger — получение параметров от WF1.
-2. **Build Query Matrix** — Code — генерация 10–14 поисковых запросов. Парсинг entities (двойной, до 3 попыток). Выход: массив объектов {query, source_platform, region, job_id, service, budget_min, budget_max}.
-3. **Loop Queries** — SplitInBatches — batchSize=1.
-   - **loop output → Serper Search.**
-   - **done output → Run Analyst (→WF5).**
-4. **Serper Search** — HTTP Request — Serper API. `putOutputInField: "serperResult"`. `onError: continueRegularOutput`.
-5. **Extract URLs** — Code — извлечение top-3 organic-результатов. Контекст (job_id, query, source_platform) через `$items("Loop Queries", 0, $runIndex)` + fallback `$('Loop Queries').item.json`.
-6. **Filter Empty** — IF — `$json.skip !== true AND $json.url isNotEmpty`.
-   - TRUE → **Loop URLs**.
-   - FALSE → возврат в **Loop Queries** (следующая итерация).
-7. **Loop URLs** — SplitInBatches — batchSize=1.
-   - **loop output → Firecrawl Scrape.**
-   - **done output → Loop Queries** (следующая итерация).
-8. **Firecrawl Scrape** — HTTP Request — Firecrawl API. `putOutputInField: "firecrawlResult"`. `onError: continueRegularOutput`.
-9. **Extract Contacts** — Code — извлечение телефонов, Telegram, email. Контекст URL через `$items("Loop URLs", 0, $runIndex)` + fallback. При отсутствии markdown → `no_results: true`. При отсутствии контактов → продолжение (Has Contacts? решит).
-10. **Has Contacts?** — IF — контакты > 0 OR source_url не пуст.
-    - TRUE → **Check Duplicate (→WF7)**.
-    - FALSE → **Skip No Contacts** → **Back to URL Loop**.
-11. **Check Duplicate** — Execute Workflow (→WF7, wait=true) — query в Pinecone.
-12. **Is Not Duplicate?** — IF — `count === 0 OR matches.length === 0`.
-    - TRUE → **Upsert to Pinecone (→WF7, wait=true)** → **Append Lead**.
-    - FALSE → **Skip Duplicate** → **Back to URL Loop**.
-13. **Append Lead** — Google Sheets — запись в `leads`.
-14. **Back to URL Loop** — NoOp → возврат в **Loop URLs** (следующая итерация).
-
-### Data Transformations
-- **Build Query Matrix:** entities → массив queries. Критическая точка: двойной парсинг entities. При ошибке → `service: "услуга"`, `region: "Россия"`.
-- **Extract URLs:** Serper response → массив {url, title, snippet, source_platform, query, job_id}. Критическая точка: контекст через $items() — при ошибке батча может потеряться.
-- **Extract Contacts:** Firecrawl markdown → {lead_id, phones, telegrams, emails, budgets, dedup_hash}. Критическая точка: регулярки для телефонов могут давать ложные срабатывания.
-
-### External Dependencies
-- Serper API: поиск.
-- Firecrawl API: скрейпинг (блокируется Cloudflare).
-- DeepSeek: не используется напрямую в WF2.
-- Pinecone (через WF7): дедупликация и upsert.
-- Google Sheets: запись в `leads`.
-
-### Credentials Required
-- serper.dev API (httpHeaderAuth)
-- Firecrawl API (httpHeaderAuth)
-- Google Sheets OAuth2
-
-### Persistent Writes
-- Google Sheets `leads`: append (lead_id, job_id, source_platform, source_url, title, description, contact_phone, contact_tg, contact_email, region, budget, scraped_at, dedup_hash, pinecone_id, total_score, status).
-- Pinecone `leads` namespace: upsert (через WF7).
-
-### Error Handling
-- Serper Search: onError="continueRegularOutput" → empty response → Extract URLs вернёт skip:true.
-- Firecrawl Scrape: onError="continueRegularOutput" → Extract Contacts вернёт no_results:true.
-- Check Duplicate/Upsert to Pinecone: onError="continueRegularOutput".
-- Build Query Matrix: throw при service="услуга" без intent (критическая ошибка).
-
-### Known Failure Points
-- **ERR-001:** Потеря контекста (job_id, query, source_platform) в HTTP Request узлах. Исправлено через putOutputInField, но $items() всё ещё используется как fallback.
-- **ERR-005:** Firecrawl возвращает "Access Denied" для Avito, Telegram, Profi, Zakupki.
-- **ERR-008:** Filter Empty блокирует все URL (отключён looseTypeValidation).
-- **ERR-009:** $('Loop Queries').item возвращает пустой объект.
-- **In HR-013:** Execute Workflow на loop-выходе вместо done (исправлено).
-
-### Related Decisions
-- ADR-005: Put Output in Field.
-- ADR-012: Disabling Firecrawl (частично).
-- ADR-014: Pinecone + Jina для векторной памяти.
-
-### Verification Evidence
-- JSON подтверждает структуру. Сквозной прогон до Append Lead не подтверждён.
-
-### Open Questions
-- Выполняется ли Run Analyst на done-выходе корректно?
-- Не слетает ли putOutputInField после ручного редактирования в UI?
-
----
-
-## WF-03 — OSINT_03_Company_Intel
-
-### Purpose
-Анализ компаний: сбор данных с сайта (Firecrawl), получение информации по ИНН (DaData), поиск новостей (Serper), LLM-анализ (DeepSeek v4-pro), запись в Google Sheets и Pinecone.
-
-### Status
-PRESENT — активен на сервере.
-
-### Trigger
-- **Execute Workflow Trigger** (node: `Start`) — вызывается из WF1 с `job_id`, `entities`, `user_id`, `chat_id`.
-
-### Called By
-- WF1 (Core Router): intent company_analysis.
-
-### Calls
-| Workflow | Node | Wait | On Error |
-|----------|------|------|----------|
-| OSINT_07_Pinecone_Memory | Pinecone Upsert | true | — |
-| OSINT_05_Analyst | Trigger Analyst | false | — |
-
-### Input Contract
-См. WF1 Output Contract (job_id, entities).
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| company_id | string | Build Company Row | Google Sheets (companies), WF5 | — |
-| job_id | string | Config | — | Пробрасывается через $('Config').item |
-| name | string | Normalize DaData / Build Company Row | Google Sheets | — |
-| inn | string | Extract Site Facts / Normalize DaData | Google Sheets | — |
-| total_score | number | Build Company Row | Google Sheets, WF5 | relevance_to_our_services от DeepSeek |
-
-### Node Flow
-1. **Start** → **Config** (Set) — извлечение job_id, target_url, target_inn, target_name из entities.
-2. Параллельно:
-   - **Has URL?** → TRUE: **Firecrawl Scrape** → **Extract Site Facts** → **Merge Sources** (input 0).
-   - **Has URL?** → FALSE: **No URL Fallback** → **Merge Sources** (input 0).
-   - **Has INN?** → TRUE: **DaData Suggest** → **Normalize DaData** → **Merge Sources** (input 1).
-   - **Has INN?** → FALSE: **No INN Fallback** → **Merge Sources** (input 1).
-3. **Merge Sources** — Merge (combine + mergeByPosition) — объединение данных из URL-ветки и INN-ветки.
-4. **Serper News** — HTTP Request — поиск новостей/отзывов/судов по названию компании.
-5. **Prepare LLM Input** — Code — сбор всех данных для DeepSeek.
-6. **DeepSeek Analyze Company** — HTTP Request (DeepSeek v4-pro) — анализ компании. Retry 3×, timeout 120s.
-7. **Build Company Row** — Code — формирование финальной строки, извлечение контактов.
-8. **Pinecone Upsert** — Execute Workflow (→WF7, wait=true).
-9. **Append Company** — Google Sheets — запись в `companies`.
-10. **Trigger Analyst** — Execute Workflow (→WF5, wait=false).
-
-### Data Transformations
-- **Config:** `entities` (строка или объект) → `{job_id, target_url, target_inn, target_name}`.
-- **Extract Site Facts:** Firecrawl markdown + html → `{inn, ogrn, phones, emails, telegrams, tech_stack}`.
-- **Normalize DaData:** DaData response → `{inn, ogrn, name, okved, employees, revenue, address, phones, emails}`.
-- **Build Company Row:** DeepSeek response + site facts + dadata facts → финальная строка для Google Sheets.
-
-### External Dependencies
-- Firecrawl API: скрейпинг сайта.
-- DaData API: информация по ИНН.
-- Serper API: поиск новостей.
-- DeepSeek API (v4-pro): анализ компании.
-- Pinecone (через WF7): upsert.
-- Google Sheets: запись в `companies`.
-
-### Credentials Required
-- Firecrawl API (httpHeaderAuth)
-- DaData API (httpHeaderAuth)
-- serper.dev API (httpHeaderAuth)
-- DeepSeek API (httpHeaderAuth)
-- Google Sheets OAuth2
-
-### Persistent Writes
-- Google Sheets `companies`: append (company_id, job_id, name, inn, ogrn, website, industry, employees_est, revenue_est, tech_stack, contacts_json, social_links, news_summary, pain_points, why_relevant, recommended_pitch, total_score, scraped_at).
-- Pinecone `companies` namespace: upsert (через WF7).
-
-### Error Handling
-- Firecrawl Scrape: onError="continueRegularOutput".
-- DaData Suggest: onError="continueRegularOutput".
-- DeepSeek Analyze Company: retry 3×, timeout 120s.
-- Нет явного error-узла — при полном отказе workflow останавливается.
-
-### Known Failure Points
-- **ERR-005:** Firecrawl "Access Denied" для защищённых сайтов.
-- $('Config').item.json — потенциальная потеря контекста (pairedItem).
-- Двойной парсинг entities (как в WF2) не реализован в Config (используется напрямую `$json.entities?.target_url`).
-
-### Related Decisions
-- ADR-002: DeepSeek flash/pro split.
-- ADR-012: Disabling Firecrawl (частично).
-
-### Verification Evidence
-- JSON подтверждает структуру. Выполнение не проверено.
-
-### Open Questions
-- Работает ли `$('Config').item.json` надёжно после Execute Workflow Trigger?
-- Корректно ли Merge Sources объединяет 4 возможные комбинации входов?
-
----
-
-## WF-04 — OSINT_04_Tender_Intel
-
-### Purpose
-Поиск тендеров: поиск через Serper и Tavily, извлечение URL, LLM-анализ каждого тендера (DeepSeek v4-flash), фильтрация по relevance, запись в Google Sheets и Pinecone.
-
-### Status
-PRESENT — активен на сервере. Firecrawl отключён в тендерной ветке.
-
-### Trigger
-- **Execute Workflow Trigger** (node: `Start`) — вызывается из WF1 с `job_id`, `entities`, `user_id`, `chat_id`.
-
-### Called By
-- WF1 (Core Router): intent tender_search.
-
-### Calls
-| Workflow | Node | Wait | On Error |
-|----------|------|------|----------|
-| OSINT_07_Pinecone_Memory | Pinecone Upsert | true | continueRegularOutput |
-| OSINT_05_Analyst | Trigger Analyst | false | — |
-
-### Input Contract
-См. WF1 Output Contract (job_id, entities).
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| tender_id | string | Enrich Tender | Google Sheets (tenders), WF5 | — |
-| job_id | string | Config | — | Через $items() |
-| platform | string | Enrich Tender | Google Sheets | hostname из URL |
-| relevance_score | number | DeepSeek Tender Analysis | Filter Relevance, Google Sheets | Порог: ≥20 |
-| total_score | number | Enrich Tender | Google Sheets, WF5 | = relevance_score |
-
-### Node Flow
-1. **Start** → **Config** (Code) — парсинг entities (двойной, как в WF2). Выход: {job_id, service, region, keywords}.
-2. Параллельно:
-   - **Serper Zakupki** — HTTP Request (Serper) — поиск тендеров. `onError: continueRegularOutput`.
-   - **Tavily Tenders** — HTTP Request (Tavily) — поиск тендеров. `onError: continueRegularOutput`.
-3. **Merge Sources** — Merge (combineAll) — объединение результатов Serper + Tavily.
-4. **Extract URLs** — Code — извлечение уникальных URL (top 10). Фильтрация youtube, instagram, facebook.
-5. **Filter Skip** — IF — `$json.url isNotEmpty`.
-   - TRUE → **Loop Tenders**.
-   - FALSE → execution stops.
-6. **Loop Tenders** — SplitInBatches — batchSize=1.
-   - **loop output → DeepSeek Tender Analysis.**
-   - **done output → Trigger Analyst (→WF5).**
-7. **DeepSeek Tender Analysis** — HTTP Request (DeepSeek v4-flash) — оценка релевантности тендера. Retry 3×, timeout 120s. `onError: continueRegularOutput`.
-8. **Enrich Tender** — Code — парсинг ответа DeepSeek + восстановление контекста через `$items("Loop Tenders", 0, $runIndex)`. Извлечение бюджета из snippet.
-9. **Filter Relevance** — IF — `relevance_score >= 20`.
-   - TRUE → **Pinecone Upsert (→WF7, wait=true)** → **Append Tender** → **Back to Loop**.
-   - FALSE → **Back to Loop**.
-10. **Append Tender** — Google Sheets — запись в `tenders`.
-11. **Back to Loop** — NoOp → возврат в Loop Tenders.
-
-### Data Transformations
-- **Config:** entities → {job_id, service, region, budget_min, budget_max, keywords}.
-- **Extract URLs:** Serper organic + Tavily results → массив {url, title, snippet, job_id, source}.
-- **Enrich Tender:** DeepSeek response + контекст → {tender_id, job_id, platform, url, title, budget, deadline, tender_number, relevance_score, matched_service, win_probability, required_prerequisites, summary, total_score}.
-
-### External Dependencies
-- Serper API: поиск тендеров.
-- Tavily API: поиск тендеров.
-- DeepSeek API (v4-flash): анализ тендеров.
-- Pinecone (через WF7): upsert.
-- Google Sheets: запись в `tenders`.
-
-### Credentials Required
-- serper.dev API (httpHeaderAuth)
-- Tavily API (httpHeaderAuth)
-- DeepSeek API (httpHeaderAuth)
-- Google Sheets OAuth2
-
-### Persistent Writes
-- Google Sheets `tenders`: append (tender_id, job_id, platform, tender_number, title, budget, deadline, url, matched_service, win_probability, required_prerequisites, summary, relevance_score, total_score, scraped_at).
-- Pinecone `tenders` namespace: upsert (через WF7).
-
-### Error Handling
-- Serper Zakupki, Tavily Tenders: onError="continueRegularOutput".
-- DeepSeek Tender Analysis: retry 3×, timeout 120s. onError="continueRegularOutput".
-- Pinecone Upsert: onError="continueRegularOutput".
-- Filter Skip → FALSE: тихая остановка.
-- Filter Relevance → FALSE: пропуск тендера (без записи).
-
-### Known Failure Points
-- **ERR-005:** Firecrawl отключён — анализ только по сниппетам.
-- Контекст через $items() — хрупкий паттерн.
-- Tavily include_domains может фильтровать релевантные площадки.
-- DeepSeek v4-flash timeout 120s — может быть избыточным для flash-модели.
-
-### Related Decisions
-- ADR-012: Disabling Firecrawl для защищённых целей.
-- ADR-002: DeepSeek flash/pro split.
-
-### Verification Evidence
-- JSON подтверждает структуру. Выполнение не проверено.
-
-### Open Questions
-- Достаточно ли сниппетов Serper/Tavily для качественного скоринга тендеров?
-
----
-
-## WF-05 — OSINT_05_Analyst
-
-### Purpose
-Универсальный аналитик: чтение сущностей из Google Sheets по job_id, итеративный скоринг каждой через DeepSeek v4-pro, обновление строк в Google Sheets, вызов Report Generator.
-
-### Status
-PRESENT — активен на сервере (`active: true`). Ключевой узел пайплайна.
-
-### Trigger
-- **Execute Workflow Trigger** (node: `Start`) — вызывается из WF2, WF3, WF4 (done-ветки), WF1 (site_analysis).
-
-### Called By
-- WF1 (intent: site_analysis)
-- WF2 (done Loop Queries → Run Analyst)
-- WF3 (Trigger Analyst)
-- WF4 (done Loop Tenders → Trigger Analyst)
-
-### Calls
-| Workflow | Node | Wait | On Error |
-|----------|------|------|----------|
-| OSINT_06_Report_Generator | Trigger Report | false | — |
-
-### Input Contract
-| Field | Type | Required | Source | Notes |
-|-------|------|----------|--------|-------|
-| job_id | string | Yes | WF1/WF2/WF3/WF4 | — |
-| entity_type | string | Yes | WF1/WF2/WF3/WF4 | 'lead', 'company', 'tender' |
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| job_id | string | Set Job Vars | WF6 (Trigger Report) | — |
-| entity_type | string | Set Job Vars | WF6, Google Sheets (имя листа) | — |
-| total_score | number | Parse Scores | Google Sheets, WF6 | 0.35×relevance + 0.20×freshness + 0.25×solvency + 0.20×contactability |
-| status | string | Parse Scores | Google Sheets | 'qualified' (total≥60) / 'new' |
-| matched_service | string | Parse Scores | Google Sheets | Одна услуга из списка |
-| why_relevant | string | Parse Scores | Google Sheets, WF6 | 3 предложения |
-| recommended_action | string | Parse Scores | Google Sheets, WF6 | Конкретное действие |
-| first_message_draft | string | Parse Scores | Google Sheets, WF6 | Персонализированное сообщение |
-
-### Node Flow
-1. **Start** → **Set Job Vars** (Set) — фиксация job_id, entity_type.
-2. **Read Entities** — Google Sheets — чтение из листа на основе entity_type ('companies', 'tenders', 'leads'). Фильтр: `job_id = $json.job_id`. `alwaysOutputData: true`.
-3. **Loop Entities** — SplitInBatches.
-   - **loop output → DeepSeek All Scores.**
-   - **done output → Trigger Report (→WF6).**
-4. **DeepSeek All Scores** — HTTP Request (DeepSeek v4-pro) — скоринг. Retry 3×, timeout 120s, wait 5s. `onError: continueRegularOutput`.
-5. **Rate Limit Wait** — Wait (0.5s) — защита от rate-limit.
-6. **Parse Scores** — Code — парсинг ответа DeepSeek. Контекст сущности через `$('Loop Entities').item.json`. Вычисление total_score. Выход: обогащённая сущность.
-7. **Update Row** — Google Sheets — update строки по lead_id/company_id/tender_id.
-
-### Data Transformations
-- **Read Entities:** динамический sheetName: `entity_type === 'company' ? 'companies' : (entity_type === 'tender' ? 'tenders' : 'leads')`.
-- **Parse Scores:** DeepSeek JSON → scores + контекст сущности объединяются. Критическая точка: `$('Loop Entities').item.json` — при пустом item → throw.
-
-### External Dependencies
-- DeepSeek API (v4-pro): скоринг.
-- Google Sheets: чтение и обновление.
-
-### Credentials Required
-- DeepSeek API (httpHeaderAuth)
-- Google Sheets OAuth2
-
-### Persistent Writes
-- Google Sheets: update строк в `leads`, `companies`, `tenders` (relevance_score, freshness_score, solvency_score, contactability_score, total_score, matched_service, why_relevant, recommended_action, first_message_draft, status).
-
-### Error Handling
-- DeepSeek All Scores: retry 3×, timeout 120s, onError="continueRegularOutput".
-- Parse Scores: throw при отсутствии данных (пустой ответ, пустой контекст) → остановка.
-- Rate Limit Wait: гарантирует не более 2 запросов/сек.
-- `alwaysOutputData: true` на Read Entities предотвращает тихую остановку при отсутствии данных.
-
-### Known Failure Points
-- **ERR-016:** ECONNABORTED/timeout при высокой нагрузке DeepSeek.
-- **ERR-015:** `$('Loop Entities').item.json` может быть недоступен.
-- **In HR-013 (ERROR_HISTORY2):** Trigger Report вызывается на done-выходе — ранее был на loop-выходе.
-- Динамический sheetName — нестабильность при изменении имени листа в Google Sheets.
-- Update Row: matchingColumns зависит от entity_type — при рассинхроне обновление молча не срабатывает.
-
-### Related Decisions
-- ADR-002: DeepSeek pro для скоринга.
-- ADR-011: Retry-политика.
-- ADR-016: Always Output Data.
-
-### Verification Evidence
-- JSON подтверждает структуру. `active: true`. Выполнение не проверено сквозным прогоном.
-
-### Open Questions
-- Правильно ли Update Row находит строку по lead_id/company_id/tender_id после чтения?
-- Не перезаписывает ли Update Row поля, не входящие в autoMapInputData?
-
----
-
-## WF-06 — OSINT_06_Report_Generator
-
-### Purpose
-Генерация финального PDF-отчёта: чтение job и entities из Google Sheets, генерация Markdown через DeepSeek v4-pro, конвертация в HTML, создание бинарного файла, рендеринг PDF через Gotenberg, доставка в Telegram, Email и Google Drive, запись в Google Sheets.
-
-### Status
-PRESENT — активен на сервере (`active: true`). Цепочка создания PDF подтверждена.
-
-### Trigger
-- **Execute Workflow Trigger** (node: `Start`) — вызывается из WF5 (done Loop Entities → Trigger Report).
-
-### Called By
-- WF5 (Analyst).
-
-### Calls
-Не вызывает другие workflow.
-
-### Input Contract
-| Field | Type | Required | Source | Notes |
-|-------|------|----------|--------|-------|
-| job_id | string | Yes | WF5 | — |
-| entity_type | string | Yes | WF5 | 'lead', 'company', 'tender' |
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| report_id | string | Log Report | Google Sheets (reports) | — |
-| job_id | string | Set Vars | Google Sheets, Telegram, Email | — |
-| pdf_drive_url | string | Upload to Drive | Email, Google Sheets (jobs, reports) | Google Drive webViewLink |
-| filename | string | MD to HTML | Upload to Drive | Формат: `OSINT_{job_id}_{date}.pdf` |
-
-### Node Flow
-1. **Start** → **Set Vars** (Set) — фиксация job_id, entity_type.
-2. **Read Job** — Google Sheets — чтение из `jobs` по job_id.
-3. **Read Qualified Entities** — Google Sheets — чтение из листа по entity_type. Фильтр по job_id. `alwaysOutputData: true`.
-4. **Prepare Context** — Code — сортировка по total_score, top-20, статистика.
-5. **DeepSeek Generate MD** — HTTP Request (DeepSeek v4-pro) — генерация Markdown-отчёта. Timeout 120s, без retry.
-6. **MD to HTML** — Code — конвертация Markdown → HTML (самописный конвертер). Генерация полного HTML-документа с CSS.
-7. **Create HTML Binary** — Code — `await this.helpers.prepareBinaryData(html, 'index.html', 'text/html')`.
-8. **Gotenberg to PDF** — HTTP Request — multipart-форма с `files: index.html`. Timeout 120s.
-9. Параллельно:
-   - **Upload to Drive** — Google Drive — загрузка PDF.
-   - **Telegram Send PDF** — Telegram — отправка PDF с caption (total_found, qualified, avg_score).
-10. **Log Report** — Google Sheets — запись в `reports`.
-11. **Send Email** — Email Send (Yandex SMTP) — письмо со ссылкой на PDF.
-12. **Update Job Done** — Google Sheets — обновление `jobs`: status='done', finished_at, report_url.
-
-### Data Transformations
-- **Prepare Context:** entities[] → {job, entities: top-20, stats: {total_found, qualified, avg_score}}.
-- **MD to HTML:** Markdown → полный HTML с инлайн-CSS.
-- **Create HTML Binary:** строка HTML → бинарный файл `index.html` (MIME: text/html).
-
-### External Dependencies
-- DeepSeek API (v4-pro): генерация Markdown.
-- Gotenberg (Docker): HTML → PDF.
-- Google Sheets: чтение и запись.
-- Google Drive: загрузка PDF.
-- Telegram Bot API: отправка PDF.
-- Yandex SMTP: отправка Email.
-
-### Credentials Required
-- DeepSeek API (httpHeaderAuth)
-- Google Sheets OAuth2
-- Google Drive OAuth2
-- Telegram API
-- Yandex SMTP
-
-### Persistent Writes
-- Google Drive: PDF-файл.
-- Google Sheets `reports`: append (report_id, job_id, created_at, pdf_drive_url, md_content_short, email_sent).
-- Google Sheets `jobs`: update (status='done', finished_at, report_url).
-
-### Error Handling
-- DeepSeek Generate MD: timeout 120s, без retry. При fail → MD to HTML получит пустой контент.
-- Gotenberg to PDF: timeout 120s. При fail → цепочка доставки обрывается.
-- Read Qualified Entities: alwaysOutputData=true.
-- Нет явного error-узла для обработки пустых entities (генерируется отчёт "Сущности не найдены").
-
-### Known Failure Points
-- **ERR-010:** Gotenberg требует binary `index.html` — исправлено через Create HTML Binary (prepareBinaryData).
-- **ERR-006:** Buffer.from() недоступен — исправлено через prepareBinaryData.
-- MD to HTML: самописный конвертер, неполная поддержка Markdown (нет поддержки ссылок, изображений, вложенных списков).
-- При `total_found == 0` генерируется и отправляется "успешный" PDF-отчёт (TD-02).
-- Telegram Send PDF: если chat_id пуст (email-источник), отправка молча не срабатывает.
-
-### Related Decisions
-- ADR-006: Gotenberg 8 для генерации PDF.
-- ADR-007: prepareBinaryData для HTML→binary.
-- ADR-008: Sandbox-safe код (отказ от Buffer, crypto).
-- ADR-016: Always Output Data.
-
-### Verification Evidence
-- JSON подтверждает структуру. `active: true`. PDF ~25 kB создаются успешно согласно DECISIONS4.md.
-
-### Open Questions
-- Подтверждена ли доставка Email при пустом chat_id?
-- Корректно ли отображается Markdown-таблица после самописного конвертера?
-
----
-
-## WF-07 — OSINT_07_Pinecone_Memory
-
-### Purpose
-Адаптер к Pinecone: векторизация текста через Jina embeddings, upsert/query/delete в Pinecone.
-
-### Status
-PRESENT — активен на сервере. Базовые операции подтверждены.
-
-### Trigger
-- **Execute Workflow Trigger** (node: `Start`) — вызывается из WF2, WF3, WF4.
-
-### Called By
-- WF2 (Check Duplicate, Upsert to Pinecone)
-- WF3 (Pinecone Upsert)
-- WF4 (Pinecone Upsert)
-
-### Calls
-Не вызывает другие workflow.
-
-### Input Contract
-| Field | Type | Required | Source | Notes |
-|-------|------|----------|--------|-------|
-| operation | string | Yes | Caller | 'upsert', 'query', 'delete' |
-| namespace | string | Yes | Caller | 'leads', 'companies', 'tenders' |
-| text | string | Yes (upsert, query) | Caller | Обрезается до 8000 символов |
-| metadata | object | Yes (upsert) | Caller | — |
-| top_k | number | No | Caller | Дефолт: 5 |
-| threshold | number | No | Caller | Дефолт: 0 |
-| id / vector_id | string | No | Caller | Автогенерация при отсутствии |
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| vector_id | string | Return Upsert / Set Config | Caller | — |
-| upserted | boolean | Return Upsert | Caller | — |
-| matches | array | Filter Matches | Caller | Отфильтровано по threshold |
-| count | number | Filter Matches | Caller | — |
-| deleted | boolean | Return Delete | Caller | — |
-
-### Node Flow
-1. **Start** → **Set Config** (Set) — извлечение параметров, задание pinecone_host.
-2. **Route Operation** — Switch:
-   - **upsert** → Jina Embed Passage → Build Upsert Body → Pinecone Upsert → Return Upsert.
-   - **query** → Jina Embed Query → Pinecone Query → Filter Matches.
-   - **delete** → Pinecone Delete → Return Delete.
-
-### Data Transformations
-- **Jina Embed Passage:** `task: "retrieval.passage"`, `dimensions: 1024`.
-- **Jina Embed Query:** `task: "retrieval.query"`, `dimensions: 1024`.
-- **Build Upsert Body:** embedding + metadata → `{vectors: [{id, values, metadata}], namespace}`.
-- **Filter Matches:** `matches.filter(m => m.score >= threshold)`.
-
-### External Dependencies
-- Jina API: embeddings.
-- Pinecone API: upsert/query/delete.
-
-### Credentials Required
-- Jina API (httpHeaderAuth)
-- Pinecone API (httpHeaderAuth)
-
-### Persistent Writes
-- Pinecone (управляется caller'ами): namespace `leads`, `companies`, `tenders`.
-
-### Error Handling
-- Jina API: без retry. При ошибке → возврат {error: 'no_embedding'}.
-- Pinecone API: без retry. Статус ошибки не проверяется явно.
-- На уровне caller'ов: onError="continueRegularOutput".
-
-### Known Failure Points
-- **ERR-011:** Неправильный endpoint Pinecone (исправлено: `/vectors/upsert`).
-- Размерность эмбеддинга: 1024 (jina-embeddings-v3). Должна совпадать с индексом Pinecone.
-
-### Related Decisions
-- ADR-014: Jina embeddings + Pinecone.
-
-### Verification Evidence
-- JSON подтверждает структуру. `upsertedCount > 0` подтверждено в ERROR_HISTORY (1).md.
-
-### Open Questions
-- Соответствует ли размерность 1024 текущему индексу Pinecone?
-- Какие существуют namespace помимо `leads`, `companies`, `tenders`?
-
----
-
-## WF-08 — OSINT_08_Utilities
-
-### Purpose
-Служебные операции: STT (Whisper через Groq), генерация PDF через Gotenberg, логирование ошибок в Google Sheets, уведомление админа, проверка throttle.
-
-### Status
-PRESENT — активен на сервере.
-
-### Trigger
-- **Execute Workflow Trigger** (node: `Start`) — вызывается из WF1 (STT) или других workflow для логирования/PDF.
-
-### Called By
-- WF1 (Execute STT).
-
-### Calls
-Не вызывает другие workflow.
-
-### Input Contract
-| Field | Type | Required | Source | Notes |
-|-------|------|----------|--------|-------|
-| operation | string | Yes | Caller | 'stt', 'pdf_from_html', 'notify_admin', 'throttle_check' |
-| file_id | string | Yes (stt) | WF1 | Telegram file_id голосового сообщения |
-| workflow | string | No (notify) | Caller | Имя workflow для логирования |
-| message | string | No (notify) | Caller | Сообщение об ошибке |
-| level | string | No (notify) | Caller | 'error' / 'info' / 'warn' |
-| service | string | Yes (throttle) | Caller | Имя сервиса для проверки лимита |
-
-### Output Contract
-| Field | Type | Produced by | Consumer | Notes |
-|-------|------|-------------|----------|-------|
-| text | string | Return STT | WF1 (Merge Voice Result) | Распознанный текст |
-| allowed | boolean | Throttle Check | Caller | Разрешён ли запрос |
-| limit | number | Throttle Check | Caller | Максимум запросов |
-| remaining | number | Throttle Check | Caller | Оставшиеся запросы |
-
-### Node Flow
-1. **Start** → **Route Operation** — Switch:
-   - **stt** → Telegram Get File Info → Telegram Download Audio → Groq Whisper STT → Return STT.
-   - **pdf** → Gotenberg PDF → Return PDF.
-   - **notify** → Log to Sheets → If Error Level (TRUE: level='error') → Telegram Notify Admin.
-   - **throttle** → Throttle Check.
-
-### Data Transformations
-- **Throttle Check:** использует `staticData` для хранения состояния окон (windowStart, count). Лимиты: deepseek=3, groq=5, serper=10, tavily=5, firecrawl=3, jina=20. Окно: 1000ms.
-
-### External Dependencies
-- Telegram Bot API: получение информации о файле, скачивание аудио.
-- Groq API (Whisper): STT.
-- Gotenberg: HTML → PDF.
-- Google Sheets: запись в `logs`.
-- Telegram Bot API: уведомление админа.
-
-### Credentials Required
-- Telegram API (bot token через `$env.TELEGRAM_BOT_TOKEN`)
-- Groq API (httpHeaderAuth)
-- Google Sheets OAuth2
-
-### Persistent Writes
-- Google Sheets `logs`: append (ts, workflow, node, level, job_id, message, payload_short).
-
-### Error Handling
-- Groq Whisper STT: timeout 120s, без retry.
-- Gotenberg PDF: timeout 120s.
-- Log to Sheets: без обработки ошибок.
-- Telegram Notify Admin: только при level='error'.
-
-### Known Failure Points
-- Throttle Check основан на `staticData` — при рестарте n8n состояние сбрасывается.
-- Telegram Get File Info: если file_id невалиден → 400.
-- Gotenberg PDF: требует binary `index.html` на входе.
-
-### Related Decisions
-- ADR-023: Отказ от retry на 429 от Groq.
-
-### Verification Evidence
-- JSON подтверждает структуру. STT-цепочка подтверждена.
-
-### Open Questions
-- Используется ли throttle_check в текущих workflow?
-- Корректно ли работает staticData при параллельных вызовах?
-
----
-
-## Cross-Workflow Risks
-
-1. **Гонка данных (Race Condition):** WF2, WF3, WF4 вызывают WF5 асинхронно (wait=false). WF5 читает данные по job_id из Google Sheets, но WF2/WF3/WF4 могут ещё не завершить запись. Риск: неполные данные в отчёте.
-2. **Отсутствие транзакционности:** Google Sheets не гарантирует атомарность. При параллельных запусках возможна потеря или дублирование строк.
-3. **Каскадный сбой:** Ошибка в WF1 → WF2 не получает entities → WF5 не находит строк → WF6 генерирует пустой отчёт. Пользователь получает "успешный" PDF с `total_found: 0`.
-4. **Token/API-key ротация:** Все API-ключи захардкожены в credential n8n. При отзыве ключа — молчаливый отказ соответствующего сервиса.
-5. **Gotenberg Single Point of Failure:** При падении контейнера Gotenberg блокируется вся доставка отчётов (WF6, WF8/pdf).
-
-## Orphaned Workflows or Nodes
-
-- **OSINT Memory** (ID: `Ht9cSNqymaGwWzT4`) — активен, но не входит в OSINT-сьют (старая версия OSINT_07?).
-- **OSINT Agent (YandexGPT)** (ID: `dSEbG1YpaIUAgoJM`) — активен, но не интегрирован в текущий пайплайн.
-- **Yandex Search (tool)** (ID: `5ehrDjfBTocR1bJ4`) — активен, но не вызывается из core-workflow.
-- **AI Estimate Engine V5.2 ENTERPRISE SAFE** (ID: `wwyHhoWp4wOPxkcJ`) — активен, не относится к OSINT-сьюту.
-
-## Missing Input/Output Contracts
-
-1. **WF1 → WF2/3/4/5: `user_id` и `chat_id`** передаются, но не документирован контракт их использования в search workflow.
-2. **WF2/3/4 → WF5: `entity_type`** — значения проверяются только в WF5 (Read Entities), но не валидируются на входе.
-3. **WF5 → WF6: `entity_type`** — передаётся, но WF6 использует его только для выбора листа при чтении entities.
-4. **WF7: `threshold` и `filter`** — передаются caller'ами, но их формат не стандартизирован.
-
-## Unverified Connections
-
-1. **WF1 (Execute Site Analysis → WF5):** intent: site_analysis маршрутизируется напрямую в WF5, минуя search engine. Непонятно, какие данные WF5 получит для анализа сайта.
-2. **WF1 (Execute Deep OSINT → WF2):** intent: deep_osint вызывает WF2, но неясно, чем поведение WF2 отличается для этого intent.
-3. **WF2 (Run Analyst → WF5):** вызывается на done-выходе Loop Queries. Подтверждено ли, что WF5 получает корректный job_id?
-4. **WF5 (Update Row):** matchingColumns динамический (`lead_id`, `company_id`, `tender_id`). Подтверждено ли, что autoMapInputData корректно маппит поля?
-5. **WF6 (Send Email):** `fromEmail: xander1s@yandex.ru`, `toEmail: xander1s@yandex.ru` — письма всегда уходят на один адрес, независимо от user_id.
-
-## Recommended Verification Order
-
-1. Запустить WF1 с тестовым Telegram-сообщением → проверить логирование в Google Sheets `jobs`.
-2. Проверить WF2 изолированно через Manual Trigger → убедиться, что Build Query Matrix → Serper → Extract URLs → Filter Empty работает.
-3. Проверить WF4 изолированно → убедиться, что Serper + Tavily → Merge Sources → Extract URLs → Loop Tenders → DeepSeek Tender Analysis → Enrich Tender работает.
-4. Проверить WF7 изолированно → upsert + query в одном namespace.
-5. Проверить WF5 изолированно с тестовым job_id → убедиться, что Read Entities → Loop Entities → DeepSeek All Scores → Parse Scores → Update Row работает.
-6. Проверить WF6 изолированно с тестовым job_id → убедиться, что цепочка Read → Generate MD → HTML → PDF → Upload → Send работает.
-7. Провести сквозной прогон WF1 → WF2 → WF5 → WF6 с одним тестовым запросом.
-8. Проверить обработку пустых результатов (total_found=0) на всех этапах.
+
+WF6 uploads generated PDFs to a configured Google Drive folder and uses the returned `webViewLink` in Sheets and email content.
+
+* * *
+
+# 5. WF1 — OSINT_01_Core_Router
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_01_Core_Router` |
+| Root ID | `WtkTm484CwBpahGt` |
+| Entry points | `Telegram Trigger`, `Email IMAP Trigger` |
+| Called by | External events |
+| Calls | WF2, WF3, WF4, WF5, WF8 |
+| Live active/published state | UNKNOWN |
+
+## Entry contract
+
+### Telegram
+
+Accepted update structures:
+
+*   `message`;
+    
+*   `edited_message`;
+    
+*   `callback_query`.
+    
+
+`Normalize Input` produces:
+
+*   `source`;
+    
+*   `user_id`;
+    
+*   `chat_id`;
+    
+*   `raw_text`;
+    
+*   `voice_file_id`;
+    
+*   `timestamp`.
+    
+
+### Email
+
+The email branch enters through `Email IMAP Trigger`, then `Filter Email`.
+Confirmed filter:
+
+```text
+subject contains "OSINT-AI"
+```
+
+Confirmed IMAP options:
+
+*   `customEmailConfig: ["UNSEEN"]`;
+    
+*   `forceReconnect: 60`.
+    
+
+`postProcessAction` is not present in the JSON.
+
+## Dispatch contract
+
+After successful classification, WF1 creates:
+
+*   `job_id`;
+    
+*   `created_at`;
+    
+*   `source`;
+    
+*   `user_id`;
+    
+*   `chat_id`;
+    
+*   `raw_text`;
+    
+*   `intent`;
+    
+*   `entities`;
+    
+*   `confidence`;
+    
+*   `status: processing`.
+    
+
+For WF2, WF3, WF4 and WF5, Execute Workflow nodes pass:
+
+```json
+{
+  "job_id": "<string>",
+  "entities": "<JSON-serialized string>",
+  "user_id": "<string>",
+  "chat_id": "<string|null>"
+}
+```
+
+The `intent` field is not passed.
+For WF8 STT, WF1 passes:
+
+```json
+{
+  "operation": "stt",
+  "file_id": "<Telegram file_id>",
+  "user_id": "<string>",
+  "chat_id": "<string>"
+}
+```
+
+## Subworkflow calls
+
+| Node | Target | `waitForSubWorkflow` | `onError` |
+| --- | --- | --- | --- |
+| `Execute STT` | WF8 | true | not set |
+| `Execute Search Private` | WF2 | false | `continueRegularOutput` |
+| `Execute Search B2B` | WF2 | false | `continueRegularOutput` |
+| `Execute Company Intel` | WF3 | false | `continueRegularOutput` |
+| `Execute Tender Intel` | WF4 | false | `continueRegularOutput` |
+| `Execute Site Analysis` | WF5 | false | `continueRegularOutput` |
+| `Execute Deep OSINT` | WF2 | false | `continueRegularOutput` |
+
+## Key branches
+
+1.  Telegram and email events converge at `Normalize Input`.
+    
+2.  Voice input:  
+    `Has Voice?` → WF8 STT synchronously → `Merge Voice Result`.
+    
+3.  Text and STT paths converge at `Merge After Voice`.
+    
+4.  `Filter Length` passes only `raw_text.length > 10`.
+    
+5.  DeepSeek classifies one of six intents.
+    
+6.  `Check Parse Success` passes only `confidence >= 0.3`.
+    
+7.  Success path:  
+    `Create Job Row` → parallel outputs to:
+    *   `Route by Intent`;
+        
+    *   `Is Telegram?`.
+        
+8.  Parse-failure path:  
+    `Notify Admin`.
+    
+9.  `Route by Intent` fallback output is not connected.
+    
+
+## Persistent output
+
+WF1 appends one row to `jobs`.
+
+## Done-path
+
+WF1 has no common terminal node.
+Each dispatched Execute Workflow node is terminal. The Telegram confirmation branch terminates at `Send Confirmation`.
+
+## Unconfirmed or conflicting areas
+
+*   Active/published state is UNKNOWN.
+    
+*   WF2 does not receive `intent`; B2B and deep-OSINT calls therefore do not have a confirmed distinct downstream contract.
+    
+*   WF3 receives serialized `entities`, while its `Config` node expects object-style property access.
+    
+*   Direct `site_analysis` calls do not provide `entity_type`; WF5 defaults to `lead`.
+    
+*   Runtime handling of Telegram `callback_query` is not proven by GitHub JSON.
+    
+*   IMAP messages being marked as read is not confirmed.
+    
+
+* * *
+
+# 6. WF2 — OSINT_02_Search_Engine
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_02_Search_Engine` |
+| Root ID | `fgf3zI8fRJhkqlHC` |
+| Entry point | Execute Workflow Trigger `Trigger` |
+| Called by | WF1 |
+| Calls | WF7, WF5 |
+| Live active/published state | UNKNOWN |
+
+## Input contract
+
+| Field | Required by code | Actual WF1 payload | Notes |
+| --- | --- | --- | --- |
+| `job_id` | expected | yes | Fallback generates `job_recovered_*` |
+| `entities` | expected | yes, serialized string | Parsed up to three times |
+| `intent` | optional | no | Defaults to `search_private` |
+| `user_id` | unused | yes | Not used by WF2 nodes |
+| `chat_id` | unused | yes | Not used by WF2 nodes |
+
+`entities` may provide:
+
+*   `service`;
+    
+*   `region`;
+    
+*   `budget_min`;
+    
+*   `budget_max`.
+    
+
+## Persistent output contract
+
+WF2 appends lead rows to `leads`.
+Core output fields:
+
+*   `lead_id`;
+    
+*   `job_id`;
+    
+*   `source_platform`;
+    
+*   `source_url`;
+    
+*   `title`;
+    
+*   `description`;
+    
+*   contact fields;
+    
+*   `budget`;
+    
+*   `dedup_hash`;
+    
+*   `pinecone_id`;
+    
+*   `total_score`;
+    
+*   `status`.
+    
+
+After the outer query loop is done, WF2 dispatches to WF5:
+
+```json
+{
+  "job_id": "<Trigger.job_id>",
+  "entity_type": "lead"
+}
+```
+
+## Subworkflow calls
+
+| Node | Target | Operation | Wait | On error |
+| --- | --- | --- | --- | --- |
+| `Check Duplicate` | WF7 | `query`, namespace `leads` | true | `continueRegularOutput` |
+| `Upsert to Pinecone` | WF7 | `upsert`, namespace `leads` | true | `continueRegularOutput` |
+| `Run Analyst` | WF5 | entity type `lead` | false | not set |
+
+## Key branches and loops
+
+1.  `Build Query Matrix` creates query items.
+    
+2.  `Loop Queries`, output 0:  
+    `Serper Search`.
+    
+3.  `Serper Search` stores its response in `serperResult`.
+    
+4.  `Extract URLs` produces at most three URL items per query.
+    
+5.  `Filter Empty`:
+    *   true → `Loop URLs`;
+        
+    *   false → back to `Loop Queries`.
+        
+6.  `Loop URLs`, output 0:  
+    `Firecrawl Scrape`.
+    
+7.  `Loop URLs`, done-output:  
+    back to `Loop Queries`.
+    
+8.  `Has Contacts?` uses OR logic:  
+    contact count greater than zero **or** `source_url` not empty.
+    
+9.  Duplicate check:
+    *   no match → Pinecone upsert → append lead;
+        
+    *   match → `Skip Duplicate`.
+        
+10.  No-contact and duplicate paths both return to `Loop URLs`.
+     
+
+## Confirmed done-path
+
+```text
+Loop URLs done
+    → Loop Queries next iteration
+
+Loop Queries done
+    → Run Analyst
+    → WF5, wait=false
+```
+
+The JSON connects the outer-loop done-output to input index 1 of `Run Analyst`. Runtime significance of that target index is not confirmed.
+
+## External services and storage
+
+*   Serper;
+    
+*   Firecrawl;
+    
+*   WF7/Jina/Pinecone;
+    
+*   Google Sheets `leads`;
+    
+*   DeepSeek indirectly through WF5.
+    
+
+## Unconfirmed or conflicting areas
+
+*   Active/published state is UNKNOWN.
+    
+*   WF1 does not pass `intent`; query-matrix differentiation between private, B2B and deep OSINT is not established at the workflow boundary.
+    
+*   `Serper Search` writes to `serperResult`, while `Extract URLs` reads root-level `organic`.
+    
+*   Context restoration still uses `$items(..., $runIndex)` and `.item` fallback.
+    
+*   Runtime behavior of the done connection to target input index 1 is UNKNOWN.
+    
+*   No live end-to-end evidence confirms `Append Lead`.
+    
+
+* * *
+
+# 7. WF3 — OSINT_03_Company_Intel
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_03_Company_Intel` |
+| Root ID | `gxCPpkQkvqc0yWf8` |
+| Entry point | Execute Workflow Trigger `Start` |
+| Called by | WF1 |
+| Calls | WF7, WF5 |
+| Live active/published state | UNKNOWN |
+
+## Input contract
+
+WF1 passes:
+
+```json
+{
+  "job_id": "<string>",
+  "entities": "<JSON-serialized string>",
+  "user_id": "<string>",
+  "chat_id": "<string|null>"
+}
+```
+
+WF3 `Config` expects:
+
+```json
+{
+  "job_id": "<string>",
+  "entities": {
+    "target_url": "<string>",
+    "target_inn": "<string>",
+    "target_name": "<string>"
+  }
+}
+```
+
+The caller and callee types for `entities` conflict.
+
+## Persistent output contract
+
+WF3 appends one company row to `companies`.
+Core fields include:
+
+*   `company_id`;
+    
+*   `job_id`;
+    
+*   identity and registration fields;
+    
+*   website and industry;
+    
+*   estimated employees and revenue;
+    
+*   technology stack;
+    
+*   contacts;
+    
+*   news and pain points;
+    
+*   pitch fields;
+    
+*   `total_score`;
+    
+*   `scraped_at`.
+    
+
+Then WF3 dispatches to WF5:
+
+```json
+{
+  "job_id": "<Build Company Row.job_id>",
+  "entity_type": "company"
+}
+```
+
+## Subworkflow calls
+
+| Node | Target | Operation | Wait | On error |
+| --- | --- | --- | --- | --- |
+| `Pinecone Upsert` | WF7 | `upsert`, namespace `companies` | true | not set |
+| `Trigger Analyst` | WF5 | entity type `company` | false | not set |
+
+## Key branches
+
+1.  `Config` starts two parallel checks:
+    *   `Has URL?`;
+        
+    *   `Has INN?`.
+        
+2.  URL path:
+    *   Firecrawl and extraction;
+        
+    *   or `No URL Fallback`.
+        
+3.  INN path:
+    *   DaData and normalization;
+        
+    *   or `No INN Fallback`.
+        
+4.  Both paths join at `Merge Sources` using merge-by-position.
+    
+5.  Serper searches company news/reviews/court references.
+    
+6.  DeepSeek produces company analysis.
+    
+7.  `Build Company Row` creates the row.
+    
+8.  WF7 upsert executes synchronously.
+    
+9.  Company row is appended.
+    
+10.  WF5 is dispatched asynchronously.
+     
+
+## Confirmed done-path
+
+```text
+Pinecone Upsert
+    → Append Company
+    → Trigger Analyst
+    → WF5, wait=false
+```
+
+There is no loop done-output in WF3.
+
+## External services and storage
+
+*   Firecrawl;
+    
+*   DaData;
+    
+*   Serper;
+    
+*   DeepSeek;
+    
+*   WF7/Jina/Pinecone;
+    
+*   Google Sheets `companies`.
+    
+
+## Unconfirmed or conflicting areas
+
+*   Active/published state is UNKNOWN.
+    
+*   Serialized `entities` from WF1 is not parsed by `Config`.
+    
+*   Multiple downstream expressions use `.item`; runtime item-linking is not proven.
+    
+*   Merge-by-position behavior across fallback and API paths has no live evidence.
+    
+*   WF7 failure is not configured with `continueRegularOutput`.
+    
+
+* * *
+
+# 8. WF4 — OSINT_04_Tender_Intel
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_04_Tender_Intel` |
+| Root ID | `zcpU6hLvcMl5RiUa` |
+| Entry point | Execute Workflow Trigger `Start` |
+| Called by | WF1 |
+| Calls | WF7, WF5 |
+| Live active/published state | UNKNOWN |
+
+## Input contract
+
+WF4 accepts:
+
+*   `job_id`;
+    
+*   `entities` as object or serialized JSON.
+    
+
+`Config` derives:
+
+*   `service`;
+    
+*   `region`;
+    
+*   `budget_min`;
+    
+*   `budget_max`;
+    
+*   `keywords`.
+    
+
+## Persistent output contract
+
+WF4 appends tender rows to `tenders`.
+Core fields:
+
+*   `tender_id`;
+    
+*   `job_id`;
+    
+*   `platform`;
+    
+*   `tender_number`;
+    
+*   `title`;
+    
+*   `budget`;
+    
+*   `deadline`;
+    
+*   `url`;
+    
+*   `matched_service`;
+    
+*   `win_probability`;
+    
+*   prerequisites and summary;
+    
+*   `relevance_score`;
+    
+*   `total_score`;
+    
+*   `scraped_at`.
+    
+
+After the tender loop is done, WF4 dispatches:
+
+```json
+{
+  "job_id": "<Config.job_id>",
+  "entity_type": "tender"
+}
+```
+
+## Subworkflow calls
+
+| Node | Target | Operation | Wait | On error |
+| --- | --- | --- | --- | --- |
+| `Pinecone Upsert` | WF7 | `upsert`, namespace `tenders` | true | `continueRegularOutput` |
+| `Trigger Analyst` | WF5 | entity type `tender` | false | not set |
+
+## Key branches and loop
+
+1.  `Config` fans out to:
+    *   `Serper Zakupki`;
+        
+    *   `Tavily Tenders`.
+        
+2.  `Merge Sources` combines both result sets.
+    
+3.  `Extract URLs` deduplicates and returns at most ten tender URL items.
+    
+4.  There is no Firecrawl node in WF4.
+    
+5.  `Filter Skip`:
+    *   true → `Loop Tenders`;
+        
+    *   false → unconnected terminal path.
+        
+6.  `Loop Tenders`, output 0:  
+    DeepSeek tender analysis.
+    
+7.  `Filter Relevance` threshold:  
+    `relevance_score >= 20`.
+    
+8.  Relevant tender:  
+    WF7 upsert → `Append Tender` → back to loop.
+    
+9.  Non-relevant tender:  
+    directly back to loop.
+    
+
+## Confirmed done-path
+
+```text
+Loop Tenders done
+    → Trigger Analyst
+    → WF5, wait=false
+```
+
+The JSON connects the loop done-output to input index 1 of `Trigger Analyst`.
+If no URL passes `Filter Skip`, the loop is not entered and Analyst is not called by this path.
+
+## External services and storage
+
+*   Serper;
+    
+*   Tavily;
+    
+*   DeepSeek;
+    
+*   WF7/Jina/Pinecone;
+    
+*   Google Sheets `tenders`.
+    
+
+## Unconfirmed areas
+
+*   Active/published state is UNKNOWN.
+    
+*   Context restoration in `Enrich Tender` uses `$items(..., $runIndex)` and `.item` fallback.
+    
+*   Runtime behavior of the done connection to target input index 1 is UNKNOWN.
+    
+*   No live evidence confirms that snippets alone provide sufficient tender data.
+    
+*   No live evidence confirms the no-results behavior.
+    
+
+* * *
+
+# 9. WF5 — OSINT_05_Analyst
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_05_Analyst` |
+| Root ID | `viR4AZBaC4CFA4qx` |
+| Entry point | Execute Workflow Trigger `Start` |
+| Called by | WF1, WF2, WF3, WF4 |
+| Calls | WF6 |
+| Live active/published state | UNKNOWN |
+
+## Input contract
+
+| Field | Required | Default | Used for |
+| --- | --- | --- | --- |
+| `job_id` | expected | none | Sheets filter and WF6 dispatch |
+| `entity_type` | no | `lead` | Selects `leads`, `companies` or `tenders` |
+| `entities` | no | — | Not used |
+| `user_id` | no | — | Not used |
+| `chat_id` | no | — | Not used |
+
+Sheet selection:
+
+```text
+company → companies
+tender  → tenders
+other   → leads
+```
+
+## Persistent output contract
+
+For every read entity, WF5 adds or replaces:
+
+*   `relevance_score`;
+    
+*   `freshness_score`;
+    
+*   `solvency_score`;
+    
+*   `contactability_score`;
+    
+*   `total_score`;
+    
+*   `matched_service`;
+    
+*   `why_relevant`;
+    
+*   `recommended_action`;
+    
+*   `first_message_draft`;
+    
+*   `status`.
+    
+
+Score formula:
+
+```text
+total_score =
+0.35 × relevance
++ 0.20 × freshness
++ 0.25 × solvency
++ 0.20 × contactability
+```
+
+Status:
+
+```text
+total_score >= 60 → qualified
+otherwise         → new
+```
+
+WF5 updates the selected entity table and then dispatches WF6:
+
+```json
+{
+  "job_id": "<Set Job Vars.job_id>",
+  "entity_type": "<Set Job Vars.entity_type>"
+}
+```
+
+## Subworkflow call
+
+| Node | Target | Wait | On error |
+| --- | --- | --- | --- |
+| `Trigger Report` | WF6 | false | not set |
+
+## Key loop
+
+1.  `Read Entities` filters by `job_id`.
+    
+2.  `alwaysOutputData` is enabled.
+    
+3.  `Loop Entities`, output 0:  
+    DeepSeek scoring.
+    
+4.  `Rate Limit Wait` has `amount: 0.5`.
+    
+5.  `Parse Scores` reads the current entity through `$('Loop Entities').item`.
+    
+6.  `Update Row` uses dynamic sheet selection and dynamic matching ID:
+    *   `company_id`;
+        
+    *   `tender_id`;
+        
+    *   `lead_id`.
+        
+7.  `Update Row` returns to `Loop Entities`.
+    
+
+## Confirmed done-path
+
+```text
+Loop Entities done
+    → Trigger Report
+    → WF6, wait=false
+```
+
+## External services and storage
+
+*   DeepSeek;
+    
+*   Google Sheets `leads`, `companies`, `tenders`;
+    
+*   WF6.
+    
+
+## Unconfirmed or conflicting areas
+
+*   Active/published state is UNKNOWN.
+    
+*   `Parse Scores` depends on `.item` linkage after HTTP Request and Wait nodes.
+    
+*   Direct WF1 `site_analysis` calls omit `entity_type`, so WF5 defaults to `lead`.
+    
+*   Direct WF1 `site_analysis` passes `entities`, but WF5 does not consume it.
+    
+*   Runtime behavior when `Read Entities` finds no rows is not established.
+    
+*   Dynamic matching-column behavior has no live evidence.
+    
+
+* * *
+
+# 10. WF6 — OSINT_06_Report_Generator
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_06_Report_Generator` |
+| Root ID | `qXWixFd94G7Tfgaa` |
+| Entry point | Execute Workflow Trigger `Start` |
+| Called by | WF5 |
+| Calls | None |
+| Live active/published state | UNKNOWN |
+
+## Input contract
+
+| Field | Required | Default |
+| --- | --- | --- |
+| `job_id` | expected | none |
+| `entity_type` | no | `lead` |
+
+WF6 reads:
+
+*   `jobs` by `job_id`;
+    
+*   one entity table by `entity_type`, filtered only by `job_id`.
+    
+
+Despite its name, `Read Qualified Entities` has no `status = qualified` filter.
+
+## Output and side-effect contract
+
+WF6 produces:
+
+*   Markdown report;
+    
+*   HTML document;
+    
+*   binary `index.html`;
+    
+*   PDF binary;
+    
+*   Google Drive upload;
+    
+*   Telegram document send path;
+    
+*   SMTP email;
+    
+*   `reports` row;
+    
+*   `jobs` completion update.
+    
+
+`Prepare Context`:
+
+*   removes empty rows lacking `source_url`, `url` and `title`;
+    
+*   sorts by `total_score`;
+    
+*   keeps at most twenty entities;
+    
+*   sets `qualified` equal to the count of all remaining entities.
+    
+
+## Key path
+
+```text
+Start
+→ Set Vars
+→ Read Job
+→ Read Qualified Entities
+→ Prepare Context
+→ DeepSeek Generate MD
+→ MD to HTML
+→ Create HTML Binary
+→ Gotenberg to PDF
+```
+
+Connections after Gotenberg are:
+
+```text
+main[0] → Upload to Drive
+main[1] → Telegram Send PDF
+```
+
+Storage/email path:
+
+```text
+Upload to Drive
+→ Log Report
+→ Send Email
+→ Update Job Done
+```
+
+Telegram path terminates at `Telegram Send PDF`.
+
+## Persistent writes
+
+*   append `reports`;
+    
+*   update `jobs` with `done`, `finished_at` and `report_url`.
+    
+
+## External services and storage
+
+*   DeepSeek;
+    
+*   Gotenberg;
+    
+*   Google Drive;
+    
+*   Telegram;
+    
+*   SMTP;
+    
+*   Google Sheets `jobs`, selected entity table and `reports`.
+    
+
+## Confirmed done-path
+
+The confirmed storage/email terminal node is:
+
+```text
+Update Job Done
+```
+
+The Telegram branch is connected to output index 1 of `Gotenberg to PDF`; runtime emission of that output is UNKNOWN.
+
+## Unconfirmed or conflicting areas
+
+*   Active/published state is UNKNOWN.
+    
+*   Telegram output-index behavior is not confirmed.
+    
+*   `Read Qualified Entities` does not actually filter qualified status.
+    
+*   `qualified` statistics count all non-empty entities.
+    
+*   SMTP recipient is fixed in node configuration and is not derived from the initiating user.
+    
+*   Telegram delivery for email-originated jobs is not confirmed.
+    
+*   End-to-end PDF delivery is not confirmed by JSON alone.
+    
+
+* * *
+
+# 11. WF7 — OSINT_07_Pinecone_Memory
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_07_Pinecone_Memory` |
+| Root ID | `O3Ke6qflNx8CL1x7` |
+| Entry point | Execute Workflow Trigger `Start` |
+| Called by | WF2, WF3, WF4 |
+| Calls | None |
+| Live active/published state | UNKNOWN |
+
+## Input contract
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `operation` | yes | `upsert`, `query`, `delete` |
+| `namespace` | yes | Current callers use `leads`, `companies`, `tenders` |
+| `text` | upsert/query | Truncated to 8000 characters |
+| `id` | no | Used as vector ID; generated if absent |
+| `metadata` | upsert | Defaults to `{}` |
+| `top_k` | no | Defaults to 5 |
+| `threshold` | no | Defaults to 0 |
+| `filter` | no | Defaults to `{}` |
+
+The input field consumed for an explicit vector identifier is `id`.
+
+## Output contracts
+
+### Upsert
+
+```json
+{
+  "vector_id": "<string>",
+  "upserted": true,
+  "namespace": "<string>"
+}
+```
+
+### Query
+
+```json
+{
+  "matches": [],
+  "count": 0,
+  "namespace": "<string>"
+}
+```
+
+### Delete
+
+```json
+{
+  "deleted": true,
+  "vector_id": "<string>"
+}
+```
+
+## Branches
+
+```text
+upsert
+→ Jina Embed Passage
+→ Build Upsert Body
+→ Pinecone Upsert
+→ Return Upsert
+
+query
+→ Jina Embed Query
+→ Pinecone Query
+→ Filter Matches
+
+delete
+→ Pinecone Delete
+→ Return Delete
+```
+
+## External services and storage
+
+*   Jina embeddings;
+    
+*   Pinecone.
+    
+
+WF7 does not access Google Sheets.
+
+## Unconfirmed areas
+
+*   Active/published state is UNKNOWN.
+    
+*   Pinecone index dimension and availability are not proven by JSON.
+    
+*   Delete has no caller among the current eight workflow JSON files.
+    
+*   API success, retry and failure behavior are not confirmed by live evidence.
+    
+
+* * *
+
+# 12. WF8 — OSINT_08_Utilities
+
+## Identity
+
+| Property | Value |
+| --- | --- |
+| Exact name | `OSINT_08_Utilities` |
+| Root ID | `IR4oQQAYQgUwIUjJ` |
+| Entry point | Execute Workflow Trigger `Start` |
+| Called by | WF1 for `stt` |
+| Calls | None |
+| Live active/published state | UNKNOWN |
+
+## Operation contracts
+
+### `stt`
+
+Input:
+
+*   `operation: stt`;
+    
+*   `file_id`;
+    
+*   optional `user_id`;
+    
+*   optional `chat_id`.
+    
+
+Path:
+
+```text
+Telegram Get File Info
+→ Telegram Download Audio
+→ Groq Whisper STT
+→ Return STT
+```
+
+Output:
+
+```json
+{
+  "text": "<recognized text>",
+  "operation": "stt"
+}
+```
+
+### `pdf_from_html`
+
+Input:
+
+*   `operation: pdf_from_html`;
+    
+*   binary property `index.html`;
+    
+*   optional `filename`.
+    
+
+Path:
+
+```text
+Gotenberg PDF
+→ Return PDF
+```
+
+Expected output contains PDF binary plus:
+
+*   `operation`;
+    
+*   `filename`.
+    
+
+No current caller exists among WF1–WF8.
+
+### `notify_admin`
+
+Input fields used by the branch:
+
+*   `workflow`;
+    
+*   `node`;
+    
+*   `level`;
+    
+*   `job_id`;
+    
+*   `message`;
+    
+*   remaining input serialized into `payload_short`.
+    
+
+Path:
+
+```text
+Log to Sheets
+→ If Error Level
+→ Telegram Notify Admin when level == error
+```
+
+The log row is appended before the error-level check.
+No current Execute Workflow caller exists among WF1–WF8.
+
+### `throttle_check`
+
+Input:
+
+*   `operation: throttle_check`;
+    
+*   `service`.
+    
+
+Output includes:
+
+*   `allowed`;
+    
+*   `service`;
+    
+*   `limit`;
+    
+*   `current`;
+    
+*   `remaining` when allowed;
+    
+*   `retryAfter` when denied;
+    
+*   `windowMs`.
+    
+
+No current caller exists among WF1–WF8.
+
+## External services and storage
+
+*   Telegram file API;
+    
+*   Groq Whisper;
+    
+*   Gotenberg;
+    
+*   Google Sheets `logs`;
+    
+*   Telegram admin notification;
+    
+*   workflow static data for throttling.
+    
+
+## Unconfirmed areas
+
+*   Active/published state is UNKNOWN.
+    
+*   Only the `stt` operation has a confirmed caller.
+    
+*   Preservation of PDF binary through `Return PDF` has no live evidence.
+    
+*   Static-data behavior under parallel executions and restarts is not confirmed.
+    
+*   Environment variables required by Telegram and admin notification are not verified by workflow JSON.
+    
+
+* * *
+
+## 13. Status and Evidence Rules
+
+### CONFIRMED BY JSON
+
+The following are confirmed by the eight workflow JSON files:
+
+*   exact workflow names and root IDs;
+    
+*   node and connection topology;
+    
+*   Execute Workflow target IDs;
+    
+*   `waitForSubWorkflow`;
+    
+*   loop output and done-output connections;
+    
+*   Google Sheets names and explicit write mappings;
+    
+*   external service endpoints referenced by nodes;
+    
+*   absence of a dedicated people-verification branch.
+    
+
+### CONFIRMED BY LIVE DATA
+
+The current environment version is:
+
+```text
+n8n 2.32.7
+```
+
+Live active/published state is not included in this document.
+
+### UNKNOWN
+
+*   active/published state of all eight workflows;
+    
+*   runtime success of individual external-service calls;
+    
+*   end-to-end completion;
+    
+*   runtime behavior of connections targeting input index 1;
+    
+*   WF6 Gotenberg output index 1;
+    
+*   item-linking expressions using `.item` and `$items(..., $runIndex)`;
+    
+*   server response/export fields.
+    
+
+### CONFLICT
+
+The following contract conflicts are recorded without diagnosing or fixing them in this document:
+
+1.  WF1 does not pass `intent` to WF2.
+    
+2.  WF1 serializes `entities`, while WF3 accesses it as an object.
+    
+3.  WF1 direct `site_analysis` does not pass `entity_type`; WF5 defaults to `lead`.
+    
+4.  WF2 stores Serper response in `serperResult`, while `Extract URLs` reads root `organic`.
+    
+5.  WF6 labels all non-empty read entities as `qualified`.

@@ -619,34 +619,19 @@ The previous global statement `Save Successful Executions: none` was incompatibl
 
 ## 18. Verification Checklist
 
-*   n8n compatibility baseline updated to 2.32.7.
-    
-*   Deployment contract synchronized with ADR-009 and ADR-010.
-    
-*   Workflow JSON profiles synchronized with ADR-024.
-    
-*   External dependencies synchronized with canonical workflow JSON.
-    
-*   Google Sheets and Pinecone usage synchronized with `WORKFLOW_MAP.md`.
-    
-*   Workflow-level settings separated from global runtime settings.
-    
-*   Secret values excluded.
-    
-*   Active/published state not inferred from GitHub.
-    
-*   Historical hardware and container snapshots removed from confirmed facts.
-    
-*   Local development paths excluded from the production baseline.
-    
-*   Current host evidence collected.
-    
-*   Current Docker/container evidence collected.
-    
-*   Global n8n configuration verified.
-    
-*   Network and TLS configuration verified.
-    
-*   Backup and restore configuration verified.
-    
-*   Runtime integration health verified.
+- [x] n8n compatibility baseline updated to 2.32.7.
+- [x] Deployment contract synchronized with ADR-009 and ADR-010.
+- [x] Workflow JSON profiles synchronized with ADR-024.
+- [x] External dependencies synchronized with canonical workflow JSON.
+- [x] Google Sheets and Pinecone usage synchronized with `WORKFLOW_MAP.md`.
+- [x] Workflow-level settings separated from global runtime settings.
+- [x] Secret values excluded.
+- [x] Active/published state not inferred from GitHub.
+- [x] Historical hardware and container snapshots removed from confirmed facts.
+- [x] Local development paths excluded from the production baseline.
+- [ ] Current host evidence collected.
+- [ ] Current Docker/container evidence collected.
+- [ ] Global n8n configuration verified.
+- [ ] Network and TLS configuration verified.
+- [ ] Backup and restore configuration verified.
+- [ ] Runtime integration health verified.

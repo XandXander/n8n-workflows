@@ -1,466 +1,1502 @@
-# ERROR_HISTORY.md
+# Error History Register — OSINT Platform
 
-## Purpose
-Единый журнал всех подтверждённых инцидентов, расследований, исправлений и результатов проверки OSINT-платформы XandAI на базе n8n. Этот документ — единственный источник истины (Single Source of Truth) для истории ошибок проекта.
+> **Status:** APPROVED  
+> **Version:** 1.0  
+> **Decision authority:** Principal Architect  
+> **Repository SSOT:** `XandXander/n8n-workflows`  
+> **Workflow JSON baseline:** `8420e423c98dcb1d11fa02f554e0674b9705bb81`  
+> **WORKFLOW_MAP baseline:** `ad9e9b92c7d76f76154d4b322f829c70ff1597e1`  
+> **ARCHITECTURE baseline:** `ef1abcf42293c67dae068efe88e8b41a15cd9059`  
+> **ENVIRONMENT baseline:** `577ff1c47b192451cc4039e9c99b3daed710d8bc`  
+> **DECISIONS baseline:** `4b1b85c5b4f7639b8488bd19e606adfc376e83f9`  
+> **Compatibility baseline:** n8n 2.32.7  
+> **Current filename:** `docs/ERROR_HISTORY_DRAFT.md`  
+> **Canonical filename after separate approved rename:** `docs/ERROR_HISTORY.md`  
+> **Last audited:** 2026-08-03
 
-## Status Legend
+* * *
+
+## 1. Purpose
+
+This document is the canonical register of error-related evidence for the OSINT Platform.
+It records:
+
+*   incident occurrence evidence;
+    
+*   historical incident claims;
+    
+*   Root Cause confidence;
+    
+*   remediation implementation state;
+    
+*   runtime-verification state;
+    
+*   evidence debt derived from incident investigations;
+    
+*   technical debt associated with error-prone contracts.
+    
+
+This document does not replace:
+
+*   `docs/WORKFLOW_MAP.md`;
+    
+*   `docs/ARCHITECTURE.md`;
+    
+*   `docs/ENVIRONMENT.md`;
+    
+*   `docs/DECISIONS_DRAFT.md`;
+    
+*   canonical workflow JSON;
+    
+*   runtime execution logs;
+    
+*   server or container logs;
+    
+*   technical specifications;
+    
+*   ADR records.
+    
+
+GitHub is the repository SSOT.
+The presence of a remediation in workflow JSON or an approved document does not independently prove:
+
+*   that the historical incident occurred;
+    
+*   that the stated Root Cause was correct;
+    
+*   that the remediation was deployed;
+    
+*   that the remediation succeeded at runtime;
+    
+*   that the incident is resolved.
+    
+
+No incident is marked resolved solely because a configuration or code change exists in GitHub.
+
+* * *
+
+## 2. Evidence Rules
+
+### 2.1 Accepted evidence
+
+Canonical statements may be supported by:
+
+*   canonical workflow JSON;
+    
+*   approved project documents;
+    
+*   confirmed Git commits;
+    
+*   sanitized execution logs;
+    
+*   sanitized server or container logs;
+    
+*   confirmed live data.
+    
+
+### 2.2 Evidence boundaries
+
+Canonical workflow JSON can confirm:
+
+*   current node configuration;
+    
+*   current data mappings;
+    
+*   current connections;
+    
+*   current retry and timeout settings;
+    
+*   current response-field handling;
+    
+*   current code patterns.
+    
+
+Canonical workflow JSON cannot independently confirm:
+
+*   historical incident occurrence;
+    
+*   historical runtime output;
+    
+*   active or published workflow state;
+    
+*   successful provider access;
+    
+*   successful end-to-end execution;
+    
+*   Root Cause of a historical failure.
+    
+
+Approved documents can confirm:
+
+*   architecture;
+    
+*   accepted decisions;
+    
+*   current evidence boundaries;
+    
+*   known contract conflicts;
+    
+*   approved deployment contracts.
+    
+
+Approved documents cannot independently confirm:
+
+*   current runtime health;
+    
+*   current credential validity;
+    
+*   successful external-service execution;
+    
+*   incident occurrence without separate evidence.
+    
+
+A Git commit can confirm that repository content changed.
+A Git commit does not independently confirm:
+
+*   successful deployment;
+    
+*   successful execution;
+    
+*   Root Cause;
+    
+*   incident resolution.
+    
+
+### 2.3 Historical source markers
+
+Markers such as:
+
+```text
+[6]
+[11]
+[15]
+[19]
+[20]
+```
+
+and references to unapproved historical files are not canonical evidence.
+Historical material may be retained only as a clearly labelled `HISTORICAL CLAIM`.
+
+### 2.4 Sensitive data
+
+This document must not contain:
+
+*   API key values;
+    
+*   tokens;
+    
+*   passwords;
+    
+*   credential IDs;
+    
+*   `.env` contents;
+    
+*   authentication cookies;
+    
+*   secret headers;
+    
+*   unsanitized payloads containing personal or confidential data.
+    
+
+* * *
+
+## 3. Status Models
+
+### 3.1 Record Class
+
+| Record class | Meaning |
+| --- | --- |
+| `INCIDENT RECORD` | A failure claim retained for investigation and evidence tracking |
+| `HISTORICAL CLAIM — NON-INCIDENT` | A historical claim that is not accepted as a production incident |
+| `TECHNICAL DEBT` | A current implementation or contract weakness; not an ERR |
+| `EVIDENCE DEBT` | Missing evidence required to confirm occurrence, Root Cause or runtime resolution |
+
+### 3.2 Incident Occurrence Status
+
 | Status | Meaning |
-|--------|---------|
-| CONFIRMED | Причина подтверждена логами или успешным исправлением |
-| PROBABLE | Наиболее вероятная причина, подтверждение неполное |
-| UNRESOLVED | Причина не установлена |
-| OBSOLETE | Ошибка относилась к старой версии системы / более неактуальна |
-| REGRESSION | Ранее исправленная ошибка повторилась |
-
-## Severity Legend
-| Severity | Meaning |
-|----------|---------|
-| CRITICAL | Полная остановка пайплайна, потеря данных, недоставка отчётов клиенту |
-| HIGH | Частичная потеря данных, блокировка ключевой ветки, требует немедленного исправления |
-| MEDIUM | Деградация функциональности, обходной путь существует |
-| LOW | Косметический дефект, не влияет на core-функциональность |
-
-## Incident Index
-| ID | Название | Workflow | Severity | Status |
-|----|----------|----------|----------|--------|
-| ERR-001 | Потеря контекста итерации (query/job_id/source_platform) при прохождении HTTP Request узлов | OSINT_02 | CRITICAL | CONFIRMED |
-| ERR-002 | DeepSeek возвращает intent:error из-за отсутствия слова "json" в system prompt | OSINT_01, OSINT_06 | HIGH | CONFIRMED |
-| ERR-003 | Сбой классификатора из-за префикса "OSINT-AI:" в сообщении пользователя | OSINT_01 | MEDIUM | CONFIRMED |
-| ERR-004 | Невозможность ручного тестирования Sub-workflow через Execute Workflow Trigger | OSINT_02 | LOW | CONFIRMED |
-| ERR-005 | Firecrawl возвращает "Access Denied" для защищённых ресурсов (Avito, Telegram, Zakupki) | OSINT_02 | HIGH | CONFIRMED |
-| ERR-006 | Buffer.from() недоступен в Code-узлах (Task Runner Sandbox) | Любой workflow с Code | MEDIUM | CONFIRMED |
-| ERR-007 | Доступ к $json.headers.subject вместо $json.subject в IMAP-триггере | Email-triggered workflow | MEDIUM | CONFIRMED |
-| ERR-008 | Filter Empty блокирует все URL после Extract URLs | OSINT_02 | HIGH | CONFIRMED |
-| ERR-009 | $('Node').item после SplitInBatches возвращает пустой объект | OSINT_02 | HIGH | CONFIRMED |
-| ERR-010 | Gotenberg: несовместимый формат данных — ожидает binary index.html, получает json.html | OSINT_06 | HIGH | CONFIRMED |
-| ERR-011 | Pinecone upsert возвращает 404/400 | OSINT_07 (ранняя версия) | HIGH | CONFIRMED |
-| ERR-012 | Unauthorized при вызове внутреннего API n8n (/rest/workflows) | n8n_git_manager (деплой) | CRITICAL | CONFIRMED |
-| ERR-013 | 400 Bad Request: запрещённые поля и ID узлов в генерируемом JSON | Все workflow (деплой) | HIGH | CONFIRMED |
-| ERR-014 | Массовый сбой после импорта LLM-сгенерированных JSON (несовместимость с n8n 2.29.10) | WF2, WF3, WF4, WF5, WF6 | CRITICAL | OBSOLETE |
-| ERR-015 | Paired item data is unavailable после Loop (SplitInBatches) | OSINT_04 | MEDIUM | CONFIRMED |
-| ERR-016 | DeepSeek API: ECONNRESET / ECONNABORTED (timeout) | OSINT_01, OSINT_05 | HIGH | CONFIRMED |
-
----
-
-## Confirmed Incidents
-
-### ERR-001 — Потеря контекста итерации (query/job_id/source_platform) при прохождении HTTP Request узлов
-
-**Status:** CONFIRMED
-**Date:** 2026-07-29 – 2026-07-31
-**Affected workflow:** OSINT_02_Search_Engine
-**Affected nodes/components:** `Loop Queries` → `Serper Search` → `Extract URLs` → `Loop URLs` → `Firecrawl Scrape` → `Extract Contacts`
-**Environment/version:** n8n 2.29.10 – 2.31.6
-**Severity:** CRITICAL
-
-#### Symptom
-Таблица `leads` оставалась пустой. Узел `Extract URLs` записывал `source_platform: "unknown"`, `query: ""`. Затирался `job_id`. После Firecrawl узел `Extract Contacts` выдавал `No output data`; `Append Lead` получал 0 items.
-
-#### Evidence
-- Логи `Extract URLs`: поля `source_platform` = `"unknown"`, `query` = `""`
-- `Append Lead`: 0 rows written to `leads` sheet
-- Пример job_id: `job_ms7vw2on_eccp5jut`
-- Serper возвращал 5 реальных organic-результатов, но контекст терялся
-
-#### Investigation
-Проверяли:
-- Использование `$('Loop Queries').context.currentItem`
-- Замену на `$('Loop Queries').first()?.json`
-- `$('Loop URLs').first()?.json`
-- Деплой настройки `putOutputInField` через Git
-- Использование `staticData`
-- `$items("Loop Queries", 0, $runIndex)[0].json`
-
-#### Wrong Assumptions
-- Текущий item цикла можно получить через `$('Loop Queries').context.currentItem`
-- `.first()?.json` восстановит контекст
-- `.all()[0]` вернёт данные текущей итерации (возвращал пустые объекты или смешанный контекст)
-- `putOutputInField` надёжно сохраняется — ручное переподключение узлов в UI n8n затирало эту настройку в базе
-- `staticData` безопасен — отвергнут из-за риска Race Condition
-
-#### Root Cause
-Дефолтное поведение узла HTTP Request в n8n — полная замена `item.json` телом ответа API. При вызове Serper и Firecrawl входящий `$json` (содержащий `job_id`, `query`, `source_platform`) полностью перезаписывался ответом поискового API.
-
-#### Fix
-**Принятое решение (ADR-005):** Использовать встроенную настройку HTTP Request `Put Output in Field`:
-- Serper Search: `putOutputInField` = `"serperResult"`
-- Firecrawl Scrape: `putOutputInField` = `"scrapeResult"` (также упоминается как `"firecrawlResult"`)
-- Downstream Code-узлы читают ответ из вложенного поля, контекст — из корня `$input`
+| --- | --- |
+| `CONFIRMED BY LOGS` | Occurrence is directly supported by sanitized logs |
+| `CONFIRMED BY LIVE DATA` | Occurrence is directly supported by current runtime observation |
+| `HISTORICAL CLAIM` | Occurrence is reported historically but lacks accepted direct evidence |
+| `UNKNOWN` | Available evidence does not establish whether the incident occurred |
+| `CONFLICT` | Accepted evidence sources disagree about occurrence or scope |
+
+### 3.3 Root Cause Confidence
+
+| Status | Meaning |
+| --- | --- |
+| `CONFIRMED` | Direct evidence establishes the causal mechanism |
+| `SUPPORTED` | Current evidence supports the mechanism but does not fully prove historical causality |
+| `UNKNOWN` | Root Cause is not established |
+| `CONFLICT` | The stated Root Cause conflicts with current accepted evidence |
+| `NOT APPLICABLE` | Record is not treated as an incident requiring Root Cause |
+
+`CONFIRMED` requires direct evidence.
+A remediation that appears to work is not, by itself, sufficient Root Cause evidence.
+
+### 3.4 Implementation State
+
+| Status | Meaning |
+| --- | --- |
+| `IMPLEMENTED IN CANONICAL JSON` | Remediation is represented in canonical workflow JSON |
+| `IMPLEMENTED IN APPROVED CONTRACT` | Remediation is represented in an approved architectural or deployment contract |
+| `PARTIAL` | Only part of the remediation is represented |
+| `CONFLICT` | Current implementation conflicts with the claimed remediation |
+| `NOT PRESENT` | Claimed remediation is not represented in current canonical artifacts |
+| `SUPERSEDED` | Historical remediation or configuration has been replaced |
+| `UNKNOWN` | Implementation state cannot be established |
+| `NOT APPLICABLE` | Record is not an implementation incident |
+
+### 3.5 Runtime Verification
+
+| Status | Meaning |
+| --- | --- |
+| `VERIFIED` | Current runtime evidence confirms the remediation succeeds |
+| `NOT VERIFIED` | Remediation exists, but current runtime success is not established |
+| `UNKNOWN` | Runtime state cannot be determined |
+| `NOT APPLICABLE` | Runtime verification does not apply to the record |
+
+* * *
+
+## 4. Incident Index
+
+| ID | Record class | Occurrence | Root Cause | Implementation | Runtime verification |
+| --- | --- | --- | --- | --- | --- |
+| ERR-001 | INCIDENT RECORD | HISTORICAL CLAIM | SUPPORTED | PARTIAL | NOT VERIFIED |
+| ERR-002 | INCIDENT RECORD | HISTORICAL CLAIM | UNKNOWN | IMPLEMENTED IN CANONICAL JSON | NOT VERIFIED |
+| ERR-003 | INCIDENT RECORD | HISTORICAL CLAIM | UNKNOWN | NOT PRESENT | NOT VERIFIED |
+| ERR-004 | HISTORICAL CLAIM — NON-INCIDENT | HISTORICAL CLAIM | NOT APPLICABLE | NOT PRESENT | NOT APPLICABLE |
+| ERR-005 | INCIDENT RECORD | HISTORICAL CLAIM | UNKNOWN | CONFLICT | NOT VERIFIED |
+| ERR-006 | INCIDENT RECORD | HISTORICAL CLAIM | UNKNOWN | IMPLEMENTED IN CANONICAL JSON | NOT VERIFIED |
+| ERR-007 | INCIDENT RECORD | HISTORICAL CLAIM | SUPPORTED | IMPLEMENTED IN CANONICAL JSON | NOT VERIFIED |
+| ERR-008 | INCIDENT RECORD | HISTORICAL CLAIM | UNKNOWN | IMPLEMENTED IN CANONICAL JSON | NOT VERIFIED |
+| ERR-009 | INCIDENT RECORD | HISTORICAL CLAIM | SUPPORTED | PARTIAL | NOT VERIFIED |
+| ERR-010 | INCIDENT RECORD | HISTORICAL CLAIM | SUPPORTED | IMPLEMENTED IN CANONICAL JSON | NOT VERIFIED |
+| ERR-011 | INCIDENT RECORD | HISTORICAL CLAIM | UNKNOWN | SUPERSEDED | NOT VERIFIED |
+| ERR-012 | INCIDENT RECORD | HISTORICAL CLAIM | SUPPORTED | IMPLEMENTED IN APPROVED CONTRACT | NOT VERIFIED |
+| ERR-013 | INCIDENT RECORD | HISTORICAL CLAIM | CONFLICT | IMPLEMENTED IN APPROVED CONTRACT | NOT VERIFIED |
+| ERR-014 | HISTORICAL CLAIM — NON-INCIDENT | HISTORICAL CLAIM | UNKNOWN | UNKNOWN | NOT VERIFIED |
+| ERR-015 | INCIDENT RECORD | HISTORICAL CLAIM | SUPPORTED | PARTIAL | NOT VERIFIED |
+| ERR-016 | INCIDENT RECORD | HISTORICAL CLAIM | UNKNOWN | PARTIAL | NOT VERIFIED |
+
+Severity is not canonicalized in this revision because the accepted evidence baseline does not establish reliable impact measurements for each record.
+
+* * *
+
+## 5. Incident Records
+
+# ERR-001 — WF2 Context Loss Around HTTP Request Loops
+
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** SUPPORTED  
+**Implementation state:** PARTIAL  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF2  
+**Related decision:** ADR-005
+
+## Historical occurrence claim
+
+Historical reports state that WF2 lost fields such as:
+
+*   `job_id`;
+    
+*   `query`;
+    
+*   `source_platform`;
+    
 
-**Примечание:** В коде также присутствует конструкция `$items("Loop Queries", 0, $runIndex)[0].json` как legacy-паттерн (TD-01).
+during Serper and Firecrawl processing, resulting in empty or incomplete lead records.
+No accepted execution log is currently attached to this record.
 
-#### Verification
-Частично. Успешный сквозной прогон до `Append Lead` на момент фиксации не был подтверждён. Отдельные компоненты работают.
+## Current confirmed evidence
 
-#### Prevention Rule
-Все HTTP Request узлы внутри циклов (SplitInBatches/Loop) должны использовать `Put Output in Field` для сохранения исходного контекста итерации.
+Canonical WF2 contains:
+
+*   `Serper Search` with response output field `serperResult`;
+    
+*   `Firecrawl Scrape` with response output field `firecrawlResult`;
+    
+*   `Extract URLs` reading root-level `organic`;
+    
+*   `$items("Loop Queries", 0, $runIndex)` context recovery;
+    
+*   `.item` fallback context recovery;
+    
+*   `Extract Contacts` reading `firecrawlResult`.
+    
 
-#### Regression Test
-Запустить сквозной прогон OSINT_02 с тестовым job_id; проверить, что `source_platform`, `query`, `job_id` корректно записаны в Google Sheets `leads` во всех строках.
+The current response-preservation contract is internally inconsistent.
 
-#### Related ADR
-ADR-005 — Put Output in Field
+## Root Cause assessment
 
-#### Related Files
-- `OSINT_02_Search_Engine.json`
-- Google Sheets: `leads`
+The current mismatch between:
 
-#### Source Notes
-ERROR_HISTORY.md (id=1), ERROR_HISTORY5.md (id=15), ERROR_HISTORY3.md (id=20), ERROR_HISTORY6.md (id=11), ERROR_HISTORY7.md (id=10), ERROR_HISTORY (1).md (id=24), DECISIONS3.md (id=16), DECISIONS4.md (id=12), DECISIONS (1).md (id=23)
+```text
+Serper output → serperResult
+```
 
----
+and:
 
-### ERR-002 — DeepSeek возвращает intent:error из-за отсутствия слова "json" в system prompt
+```text
+Extract URLs input → root-level organic
+```
 
-**Status:** CONFIRMED
-**Date:** 2026-07-28
-**Affected workflow:** OSINT_01 (DeepSeek Intent Classifier), OSINT_06 (DeepSeek Generate MD)
-**Affected nodes/components:** HTTP Request → DeepSeek API (`/v1/chat/completions`)
-**Environment/version:** DeepSeek API (v4-flash, v4-pro)
-**Severity:** HIGH
+supports a response-path failure mechanism.
+The evidence does not prove that this mismatch was the sole Root Cause of every historical empty-lead execution.
 
-#### Symptom
-`400 Bad Request` от DeepSeek API с сообщением: `Prompt must contain the word 'json' in some form to use 'response_format' of type 'json_object'`. Пайплайн падал на этапе классификации интента.
+## Implementation state
 
-#### Evidence
-HTTP 400: `"Prompt must contain the word 'json' in some form to use 'response_format' of type 'json_object'"`
+ADR-005 is `PARTIAL`.
+Firecrawl downstream handling is aligned with `firecrawlResult`.
+Serper downstream handling is not aligned with `serperResult`.
+Legacy context-recovery patterns remain.
 
-#### Root Cause
-DeepSeek API требует буквального наличия слова "json" (в любой форме) в system prompt при использовании `response_format: { type: "json_object" }`.
+## Runtime verification required
 
-#### Fix
-В начало system prompt добавлена фраза `You must respond with a JSON object.`
+Required evidence:
 
-#### Verification
-Запросы к DeepSeek с обновлённым system prompt возвращают корректный JSON без ошибки 400.
+*   sanitized output from `Serper Search`;
+    
+*   sanitized output from `Extract URLs`;
+    
+*   sanitized output from `Firecrawl Scrape`;
+    
+*   sanitized output from `Extract Contacts`;
+    
+*   sanitized input to `Append Lead`;
+    
+*   final Google Sheets row for the same `job_id`.
+    
 
-#### Prevention Rule
-Все system prompt'ы для DeepSeek с `response_format: json_object` должны содержать слово "json" в явном виде.
+* * *
 
-#### Related ADR
-NONE
+# ERR-002 — DeepSeek JSON-Object Prompt Validation Failure
 
----
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** IMPLEMENTED IN CANONICAL JSON  
+**Runtime verification:** NOT VERIFIED  
+**Affected components:** WF1, WF6
 
-### ERR-003 — Сбой классификатора из-за префикса "OSINT-AI:" в сообщении пользователя
+## Historical occurrence claim
 
-**Status:** CONFIRMED
-**Date:** 2026-07-31
-**Affected workflow:** OSINT_01 (Parse Intent)
-**Severity:** MEDIUM
+Historical reports describe an HTTP 400 response when `response_format.type` was set to `json_object` without an explicit JSON instruction in the prompt.
+The exact API response is not supported by an accepted current log.
 
-#### Symptom
-Telegram-бот прислал Alert: `intent: error, entities: ОШИБКА`. Классификатор не мог определить intent при наличии префикса "OSINT-AI:" в сообщении.
+## Current confirmed evidence
 
-#### Root Cause
-Модель deepseek-v4-flash запуталась из-за нестандартного префикса "OSINT-AI:" в сочетании со строгими фолбэками в коде ноды `Parse Intent`.
+Canonical WF1 and WF6:
 
-#### Fix
-Дополнен System Prompt: добавлено указание игнорировать префиксы и обращения при классификации интента.
+*   use `response_format: { type: "json_object" }`;
+    
+*   contain an explicit instruction to return JSON.
+    
 
-#### Verification
-Запрос с префиксом "OSINT-AI:" обработан корректно.
+## Root Cause assessment
 
----
+The current implementation is consistent with a provider-side JSON-prompt requirement.
+The historical provider response and exact causal requirement are not directly established by the accepted evidence baseline.
 
-### ERR-004 — Невозможность ручного тестирования Sub-workflow через Execute Workflow Trigger
+## Implementation state
 
-**Status:** CONFIRMED
-**Date:** 2026-07-31
-**Affected workflow:** OSINT_02
-**Severity:** LOW
+The mitigation is represented in canonical JSON for the affected nodes inspected by this record.
 
-#### Symptom
-При запуске изолированного теста через Execute Workflow Trigger все поля возвращали `null`.
+## Runtime verification required
 
-#### Root Cause
-Баг/особенность версии n8n 2.31.6 при мокировании входящих данных для sub-workflow.
+Required evidence:
 
-#### Fix
-Временное добавление ноды `Manual Trigger` и `Code Node` с хардкодом тестового JSON-объекта.
+*   sanitized provider response from a failing pre-mitigation request, if retained;
+    
+*   sanitized successful execution after the current prompt;
+    
+*   confirmation that the returned content is valid JSON.
+    
 
-#### Verification
-Изолированный тест с Manual Trigger + Code Node — данные передаются корректно [19].
+* * *
 
----
+# ERR-003 — Intent Classification Failure Associated with `OSINT-AI:` Prefix
 
-### ERR-005 — Firecrawl возвращает "Access Denied" для защищённых ресурсов
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** NOT PRESENT  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF1
 
-**Status:** CONFIRMED
-**Date:** 2026-07-31
-**Affected workflow:** OSINT_02
-**Severity:** HIGH
+## Historical occurrence claim
 
-#### Symptom
-Для ресурсов Avito, Telegram, Profi.ru, Zakupki.gov.ru Firecrawl возвращал "Access Denied" или Cloudflare-капчу. LLM галлюцинировал контактные данные.
+Historical reports state that a request containing the prefix:
 
-#### Root Cause
-Целевые платформы используют Enterprise/Gov-level антибот-защиту (Cloudflare, GOST-шифрование).
+```text
+OSINT-AI:
+```
 
-#### Fix
-Firecrawl отключён для защищённых платформ. Данные передаются через title+snippet от Serper/Tavily.
+produced an invalid or fallback intent.
 
-#### Related ADR
-ADR-012
+## Current confirmed evidence
 
----
+The canonical WF1 classifier prompt defines intent and entity-extraction rules.
+It does not contain an explicit rule instructing the model to ignore the `OSINT-AI:` prefix.
 
-### ERR-006 — Buffer.from() недоступен в Code-узлах (Task Runner Sandbox)
+## Root Cause assessment
 
-**Status:** CONFIRMED
-**Date:** Июль 2026
-**Affected workflow:** Любой workflow с Code
-**Severity:** MEDIUM
+The claim that the model was confused by the prefix is not supported by accepted comparative execution evidence.
+Possible interactions with parsing, confidence handling or prompt interpretation remain unverified.
 
-#### Symptom
-`ReferenceError: Buffer is not defined`
+## Implementation state
 
-#### Root Cause
-Task Runner Sandbox изолирует выполнение JavaScript. `Buffer` — Node.js API, недоступное в Sandbox.
+The claimed prompt remediation is not represented in current canonical WF1 JSON.
 
-#### Fix
-Замена на `this.helpers.prepareBinaryData`. Отказ от `crypto.randomUUID()` в пользу `Math.random`.
+## Runtime verification required
 
-#### Related ADR
-ADR-008
+Required evidence:
 
----
+*   sanitized classifier request and response with the prefix;
+    
+*   sanitized classifier request and response without the prefix;
+    
+*   parsed output from `Parse Intent`;
+    
+*   confidence values from both executions.
+    
 
-### ERR-007 — Доступ к $json.headers.subject вместо $json.subject в IMAP-триггере
+* * *
 
-**Status:** CONFIRMED
-**Date:** Июль 2026
-**Severity:** MEDIUM
+# ERR-005 — Firecrawl Failure on Protected or Restricted Targets
 
-#### Symptom
-Фильтр темы письма не срабатывает. Письма с темой «OSINT-AI: ...» не запускают workflow.
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** CONFLICT  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF2  
+**Related decision:** ADR-012
 
-#### Root Cause
-IMAP-нода n8n парсит тему в корень `$json.subject`, а не в `$json.headers.subject`.
+## Historical occurrence claim
 
-#### Fix
-`$json.subject contains "OSINT-AI"` [11].
+Historical reports state that Firecrawl returned blocked or inaccessible responses for some targets.
+Claims about specific anti-bot technologies, encryption mechanisms and affected domains are not canonicalized without direct evidence.
 
----
+## Current confirmed evidence
 
-### ERR-008 — Filter Empty блокирует все URL после Extract URLs
+Canonical WF2 sends URL items passing `Filter Empty` to `Firecrawl Scrape`.
+No protected-domain bypass is present.
+ADR-012 is:
 
-**Status:** CONFIRMED
-**Date:** 2026-07-18
-**Affected workflow:** OSINT_02
-**Severity:** HIGH
+```text
+UNKNOWN
+```
 
-#### Symptom
-`Filter Empty` отсеивает все элементы, несмотря на наличие поля `url` в логах.
+with conflicting evidence.
 
-#### Fix
-Включён `looseTypeValidation` в Filter Empty.
+## Root Cause assessment
 
----
+No accepted response body, HTTP status, provider log or target-specific diagnostic is attached.
+The Root Cause is UNKNOWN.
 
-### ERR-009 — $('Node').item после SplitInBatches возвращает пустой объект
+## Implementation state
 
-**Status:** CONFIRMED
-**Date:** 2026-07-18 – 2026-07-20
-**Affected workflow:** OSINT_02
-**Severity:** HIGH
+The historical claim that Firecrawl was disabled for protected targets conflicts with current canonical WF2.
 
-#### Symptom
-В Code-узлах переменная `cur` получалась пустой (`{}`), терялись `job_id`, `query`, `source_platform`.
+## Runtime verification required
 
-#### Root Cause
-После `SplitInBatches` контекст pairedItem теряется в n8n 2.31.6.
+Required evidence for each affected target:
 
-#### Fix
-Использовать `$input.first()?.json` вместо `$('Node').item.json`.
+*   target URL or sanitized domain;
+    
+*   Firecrawl HTTP status;
+    
+*   sanitized Firecrawl response;
+    
+*   execution timestamp;
+    
+*   fallback behavior;
+    
+*   resulting lead item;
+    
+*   confirmation that no fabricated contact data was persisted.
+    
 
----
+* * *
 
-### ERR-010 — Gotenberg: несовместимый формат данных
+# ERR-006 — Unsupported Code-Node Runtime APIs
 
-**Status:** CONFIRMED
-**Date:** 2026-06-28 – 2026-07-30
-**Affected workflow:** OSINT_06
-**Severity:** HIGH
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** IMPLEMENTED IN CANONICAL JSON  
+**Runtime verification:** NOT VERIFIED  
+**Affected components:** Canonical Code nodes  
+**Related decisions:** ADR-007, ADR-008
 
-#### Symptom
-`This operation expects the node's input data to contain a binary file 'index.html', but none was found [item 0]`.
+## Historical occurrence claim
 
-#### Root Cause
-Gotenberg ожидает multipart/form-data с бинарным файлом `index.html` (MIME `text/html`), а `MD to HTML` отдаёт строку в `json.html`.
+Historical reports describe failures involving runtime APIs such as:
 
-#### Fix
-Создан Code-узел `Create HTML Binary` с `prepareBinaryData`.
+*   `Buffer.from()`;
+    
+*   `crypto.randomUUID()`.
+    
 
-#### Related ADR
-ADR-006, ADR-007
+No accepted execution log is attached.
 
----
+## Current confirmed evidence
 
-### ERR-011 — Pinecone upsert возвращает 404/400
+Canonical workflow code uses:
 
-**Status:** CONFIRMED
-**Date:** 2026-07-02
-**Affected workflow:** OSINT_07
-**Severity:** HIGH
+*   `prepareBinaryData` for WF6 binary preparation;
+    
+*   `Math.random()` and timestamp-based identifiers;
+    
+*   `new Date().toISOString()`.
+    
 
-#### Symptom
-POST на Pinecone endpoint возвращал 404.
+Approved `ENVIRONMENT.md` classifies global Code-node environment access as `UNKNOWN`.
 
-#### Root Cause
-Неправильный endpoint (`/vectors` вместо `/vectors/upsert`) и некорректная структура тела запроса.
+## Root Cause assessment
 
-#### Fix
-Endpoint изменён на `/vectors/upsert`. Namespace: `osint-knowledge`. Размер вектора: 768 (позднее 1024).
+The current evidence confirms the adopted sandbox-safe implementation pattern.
+It does not establish the exact historical runtime restriction or global Task Runner configuration.
 
----
+## Implementation state
 
-### ERR-012 — Unauthorized при вызове внутреннего API n8n (/rest/workflows)
+The canonical remediation patterns are represented in workflow JSON.
 
-**Status:** CONFIRMED
-**Date:** Июль 2026
-**Affected workflow:** n8n_git_manager
-**Severity:** CRITICAL
+## Runtime verification required
 
-#### Symptom
-`{"status":"error","message":"Unauthorized"}` при запросе к `/rest/workflows`.
+Required evidence:
 
-#### Root Cause
-Использовался внутренний REST-интерфейс n8n, требующий куки сессии, с публичным API-ключом.
+*   sanitized execution log showing the historical runtime error;
+    
+*   current successful execution of the affected Code node;
+    
+*   read-only runtime evidence for Code-node environment access, if needed.
+    
 
-#### Fix
-Переход на Public API v1: `/api/v1/workflows/{id}`. Метод: PUT [20].
+* * *
 
-#### Related ADR
-ADR-009, ADR-010
+# ERR-007 — Incorrect IMAP Subject Data Path
 
----
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** SUPPORTED  
+**Implementation state:** IMPLEMENTED IN CANONICAL JSON  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF1
 
-### ERR-013 — 400 Bad Request: запрещённые поля и ID узлов в генерируемом JSON
+## Historical occurrence claim
 
-**Status:** CONFIRMED
-**Date:** Июль 2026
-**Affected workflow:** Все workflow (деплой)
-**Severity:** HIGH
+Historical reports state that an email subject filter used a non-working nested path and failed to match expected messages.
 
-#### Symptom
-Сервер n8n отвергал JSON при деплое.
+## Current confirmed evidence
 
-#### Root Cause
-JSON содержал поля `id`, `active`, `versionId`, `createdAt` и ID узлов.
+Canonical WF1 `Filter Email` reads:
 
-#### Fix
-Чёрный список полей для удаления перед деплоем.
+```text
+$json.subject
+```
 
----
+and checks whether it contains:
 
-### ERR-014 — Массовый сбой после импорта LLM-сгенерированных JSON
+```text
+OSINT-AI
+```
 
-**Status:** OBSOLETE
-**Date:** 2026-07-18
-**Severity:** CRITICAL
+## Root Cause assessment
 
-#### Symptom
-После импорта "исправленных" JSON система полностью перестала работать.
+The current implementation supports the conclusion that the canonical subject field is root-level for this workflow contract.
+The historical failing expression and execution output are not present in accepted evidence.
 
-#### Root Cause
-LLM-сгенерированные JSON содержали параметры, несовместимые с n8n 2.29.10.
+## Implementation state
 
-#### Fix
-Ручное исправление каждого workflow.
+The root-level subject mapping is represented in canonical JSON.
 
----
+## Runtime verification required
 
-### ERR-015 — Paired item data is unavailable после Loop (SplitInBatches)
+Required evidence:
 
-**Status:** CONFIRMED
-**Date:** 2026-07-29
-**Affected workflow:** OSINT_04
-**Severity:** MEDIUM
+*   sanitized IMAP trigger output;
+    
+*   evaluated `Filter Email` input;
+    
+*   filter result;
+    
+*   downstream `Normalize Input` output.
+    
 
-#### Symptom
-`ExpressionError: Paired item data ... is unavailable` при вызове `$('Config').item.json.job_id`.
+* * *
 
-#### Fix
-Заменено на `$('Config').first().json.job_id` [15].
+# ERR-008 — WF2 `Filter Empty` Rejecting URL Items
 
----
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** IMPLEMENTED IN CANONICAL JSON  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF2
 
-### ERR-016 — DeepSeek API: ECONNRESET / ECONNABORTED (timeout)
+## Historical occurrence claim
 
-**Status:** CONFIRMED
-**Date:** Июль 2026
-**Affected workflow:** OSINT_01, OSINT_05
-**Severity:** HIGH
+Historical reports state that `Filter Empty` rejected URL items even when a URL appeared to be present.
 
-#### Symptom
-Узел DeepSeek систематически падал с `ECONNRESET` (WF1) или `ECONNABORTED` (WF5).
+## Current confirmed evidence
 
-#### Root Cause
-Нестабильность сетевого соединения и недостаточные таймауты.
+Canonical WF2 configures:
 
-#### Fix
-Retry On Fail: 3 попытки. Timeout: 45s (flash), 120s (pro) [6].
+```text
+looseTypeValidation: true
+```
 
-#### Related ADR
-ADR-011
+and requires:
 
----
+*   `skip !== true`;
+    
+*   non-empty `url`.
+    
 
-## Unresolved Incidents
+## Root Cause assessment
 
-На момент консолидации неразрешённых инцидентов с подтверждёнными симптомами не зафиксировано.
+The previous filter configuration and evaluated input types are not available.
+The Root Cause is UNKNOWN.
 
----
+## Implementation state
 
-## Repeated Failure Patterns
+The claimed loose-type-validation mitigation is represented in canonical JSON.
 
-### RFP-01: Использование `.first()` / `.item` для получения контекста итерации
-- ERR-001, ERR-009, ERR-015
-- Правило: после SplitInBatches/Loop использовать `$input`, для HTTP Request — `Put Output in Field`.
+## Runtime verification required
 
-### RFP-02: Стандартные скрейперы для защищённых ресурсов
-- ERR-005
-- Правило: проверять домен на антибот-защиту перед использованием.
+Required evidence:
 
-### RFP-03: Доверие к UI-настройкам n8n внутри циклов
-- ERR-001, ERR-004
-- Правило: фиксировать критические настройки в JSON и деплоить через Git.
+*   sanitized `Extract URLs` output;
+    
+*   evaluated IF conditions;
+    
+*   true-output item count;
+    
+*   false-output item count;
+    
+*   one representative passing item.
+    
 
----
+* * *
 
-## Conflicting Evidence
+# ERR-009 — Fragile Paired-Item Context Access After WF2 Loops
 
-### CE-01: Метод сохранения контекста в WF2 (ERR-001)
-- Версия A (DECISIONS3.md, ADR-005): `putOutputInField`.
-- Версия B (DECISIONS4.md): `$items()`.
-- Разрешение: `putOutputInField` — принятое решение. `$items()` — технический долг (TD-01).
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** SUPPORTED  
+**Implementation state:** PARTIAL  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF2  
+**Related decision:** ADR-005
 
-### CE-02: Метод HTTP для деплоя — PUT vs PATCH
-- ENVIRONMENT.md: PATCH.
-- DECISIONS7.md, ERROR_HISTORY4.md: PUT.
-- Разрешение: PUT (ADR-010) — текущий метод.
+## Historical occurrence claim
 
----
+Historical reports state that node references after `SplitInBatches` returned empty or incorrect context.
 
-## Missing Evidence
+## Current confirmed evidence
 
-1. Execution logs для ERR-001 (сквозной прогон).
-2. Execution logs для ERR-008 (Filter Empty).
-3. Точная схема Pinecone (размерность, embedding model, retention).
-4. Calibration dataset для скоринга тендеров.
-5. Точные версии n8n для каждого инцидента.
+Canonical WF2 still uses:
 
----
+```text
+$items("Loop Queries", 0, $runIndex)
+```
 
-## Technical Debt Derived from Incidents
+and fallback access through:
 
-| ID | Описание | Severity | Источник |
-|----|----------|----------|----------|
-| TD-01 | $items() legacy-паттерн в WF2/WF4 | HIGH | ERR-001 |
-| TD-02 | Пустые PDF-отчёты при total_found==0 | MEDIUM | ERR-005 |
-| TD-03 | Save Successful Executions: none | MEDIUM | ENVIRONMENT.md |
-| TD-04 | Отсутствие валидации схем между workflow | MEDIUM | ERR-001 |
-| TD-05 | Смешение логики в Extract Contacts | LOW | ERR-001 |
-| TD-06 | Отсутствие cron-бэкапов | MEDIUM | ERR-012 |
-| TD-07 | Отсутствие Watchtower | LOW | ERR-012 |
+```text
+$('Loop Queries').item
+```
+
+Similar recovery exists around `Loop URLs`.
+
+## Root Cause assessment
+
+The current implementation confirms reliance on fragile context-recovery patterns.
+The version-specific claim about n8n paired-item behavior is not directly established.
+
+## Implementation state
+
+The issue is only partially addressed.
+The current workflow still contains the patterns associated with the historical failure claim.
+
+## Runtime verification required
+
+Required evidence:
+
+*   loop iteration index;
+    
+*   source item;
+    
+*   paired-item metadata;
+    
+*   `$items()` result;
+    
+*   `.item` result;
+    
+*   final context used by downstream nodes.
+    
+
+* * *
+
+# ERR-010 — Gotenberg Input Missing Binary `index.html`
+
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** SUPPORTED  
+**Implementation state:** IMPLEMENTED IN CANONICAL JSON  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF6  
+**Related decisions:** ADR-006, ADR-007
+
+## Historical occurrence claim
+
+Historical reports describe a Gotenberg request failing because binary input named `index.html` was missing.
+
+## Current confirmed evidence
+
+Canonical WF6:
+
+*   produces HTML text;
+    
+*   converts the HTML through `prepareBinaryData`;
+    
+*   names the binary `index.html`;
+    
+*   uses MIME type `text/html`;
+    
+*   submits binary field `index.html` to Gotenberg.
+    
+
+## Root Cause assessment
+
+The current request contract supports the conclusion that Gotenberg requires the binary file expected by the multipart configuration.
+The historical pre-remediation workflow and error log are not part of the accepted baseline.
+
+## Implementation state
+
+The binary-preparation remediation is represented in canonical JSON.
+ADR-006 remains `PARTIAL` because Gotenberg runtime availability and successful conversion are unverified.
+
+## Runtime verification required
+
+Required evidence:
+
+*   `Create HTML Binary` output metadata;
+    
+*   Gotenberg request metadata;
+    
+*   Gotenberg HTTP status;
+    
+*   returned binary metadata;
+    
+*   generated PDF validation.
+    
+
+* * *
+
+# ERR-011 — Historical Pinecone Upsert 404 or 400
+
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** SUPERSEDED  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF7  
+**Related decision:** ADR-014
+
+## Historical occurrence claim
+
+Historical reports describe Pinecone upsert requests returning HTTP 404 or 400.
+The historical configuration reportedly used earlier endpoint, namespace or vector-dimension assumptions.
+
+## Current confirmed evidence
+
+The canonical architecture now uses:
+
+```text
+model: jina-embeddings-v3
+dimensions: 1024
+upsert task: retrieval.passage
+query task: retrieval.query
+```
+
+Current caller namespaces are:
+
+*   `leads`;
+    
+*   `companies`;
+    
+*   `tenders`.
+    
+
+The historical namespace `osint-knowledge` and dimension `768` are not current canonical contracts.
+
+## Root Cause assessment
+
+No accepted request or response log from the historical failure is available.
+The exact Root Cause is UNKNOWN.
+
+## Implementation state
+
+The historical configuration has been superseded by ADR-014 and current WF7.
+
+## Runtime verification required
+
+Required evidence:
+
+*   sanitized embedding response dimensions;
+    
+*   sanitized Pinecone request;
+    
+*   Pinecone HTTP status;
+    
+*   index dimension configuration;
+    
+*   upsert result;
+    
+*   query result.
+    
+
+* * *
+
+# ERR-012 — Unauthorized Use of Internal n8n Workflow Route
+
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** SUPPORTED  
+**Implementation state:** IMPLEMENTED IN APPROVED CONTRACT  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** `n8n_workflow_manager`  
+**Related decisions:** ADR-009, ADR-010
+
+## Historical occurrence claim
+
+Historical reports describe an unauthorized response while attempting workflow operations through an internal n8n route.
+
+## Current confirmed evidence
+
+The approved deployment contract uses:
+
+```text
+PUT https://xandai.ru/api/v1/workflows/{workflow_id}
+```
+
+with authorization header name:
+
+```text
+X-N8N-API-KEY
+```
+
+The internal `/rest/workflows` route is excluded from the approved deployment pipeline.
+
+## Root Cause assessment
+
+The accepted architecture supports the distinction between the internal route and Public API v1.
+The exact historical authentication state and unauthorized response are not supported by accepted logs.
+
+## Implementation state
+
+The remediation is represented in approved ADR-009 and ADR-010.
+
+## Runtime verification required
+
+Required evidence:
+
+*   sanitized Public API request metadata;
+    
+*   HTTP status;
+    
+*   response metadata;
+    
+*   workflow ID;
+    
+*   confirmation that no internal `/rest/workflows` route was used;
+    
+*   post-update read-only verification.
+    
+
+* * *
+
+# ERR-013 — Workflow Update Payload Rejected by n8n
+
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** CONFLICT  
+**Implementation state:** IMPLEMENTED IN APPROVED CONTRACT  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** `n8n_workflow_manager`  
+**Related decisions:** ADR-010, ADR-024
+
+## Historical occurrence claim
+
+Historical reports state that n8n rejected an update payload containing unsupported root fields.
+The same historical record also claimed that node IDs were forbidden.
+
+## Current confirmed evidence
+
+The approved update contract requires removal of these root fields from the PUT body:
+
+```text
+id
+versionId
+active
+createdAt
+updatedAt
+shared
+tags
+triggerCount
+pinData
+meta
+```
+
+The approved contract also requires:
+
+*   reading `workflow_id` from Profile A root `id`;
+    
+*   using root `id` in the endpoint;
+    
+*   removing root `id` from the request body;
+    
+*   preserving existing `nodes[].id`;
+    
+*   preserving credentials;
+    
+*   not modifying automatic credential substitution.
+    
+
+## Root Cause assessment
+
+The unsupported-root-field portion is consistent with the approved sanitized PUT contract.
+The claim that existing node IDs must be removed conflicts with ADR-010 and ADR-024.
+
+## Implementation state
+
+The current remediation is represented in the approved deployment contract.
+
+## Runtime verification required
+
+Required evidence:
+
+*   sanitized pre-sanitation payload field list;
+    
+*   sanitized PUT payload field list;
+    
+*   HTTP status;
+    
+*   response metadata;
+    
+*   read-only server response after update.
+    
+
+* * *
+
+# ERR-015 — Paired-Item Context Error in WF4 Tender Loop
+
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** SUPPORTED  
+**Implementation state:** PARTIAL  
+**Runtime verification:** NOT VERIFIED  
+**Affected component:** WF4
+
+## Historical occurrence claim
+
+Historical reports describe a paired-item error while accessing upstream data after `Loop Tenders`.
+
+## Current confirmed evidence
+
+Canonical WF4 uses:
+
+```text
+$('Config').first()
+```
+
+for stable access to configuration data.
+`Enrich Tender` still uses:
+
+```text
+$items("Loop Tenders", 0, $runIndex)
+```
+
+with `.item` fallback.
+
+## Root Cause assessment
+
+The current code supports the conclusion that paired-item and loop-context access required workarounds.
+The exact historical error, n8n version and causal mechanism are not directly established.
+
+## Implementation state
+
+The remediation is partial.
+One context path uses `.first()` while another retains `$items()` and `.item` fallback.
+
+## Runtime verification required
+
+Required evidence:
+
+*   `Loop Tenders` input;
+    
+*   iteration index;
+    
+*   paired-item metadata;
+    
+*   `Config` output;
+    
+*   `Enrich Tender` resolved context;
+    
+*   final persisted tender row.
+    
+
+* * *
+
+# ERR-016 — DeepSeek Timeout or Connection Reset
+
+**Record class:** INCIDENT RECORD  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** PARTIAL  
+**Runtime verification:** NOT VERIFIED  
+**Affected components:** WF1, WF3, WF4, WF5, WF6  
+**Related decision:** ADR-011
+
+## Historical occurrence claim
+
+Historical reports describe DeepSeek requests failing with timeout or connection-reset errors.
+
+## Current confirmed evidence
+
+Canonical retry and timeout configuration is:
+| Workflow | Timeout | Retry configuration |
+| --- | --- | --- |
+| WF1 | 45 seconds | 3 attempts, 5-second wait |
+| WF3 | 120 seconds | 3 attempts, 2-second wait |
+| WF4 | 120 seconds | 3 attempts, 2-second wait |
+| WF5 | 120 seconds | 3 attempts, 5-second wait |
+| WF6 | 120 seconds | Retry fields absent |
+
+## Root Cause assessment
+
+The historical claim combines:
+
+*   a network-failure symptom;
+    
+*   an insufficient-timeout hypothesis.
+    
+
+The available evidence does not establish whether the failures were caused by:
+
+*   provider latency;
+    
+*   network interruption;
+    
+*   timeout settings;
+    
+*   request size;
+    
+*   rate limiting;
+    
+*   another external condition.
+    
+
+The Root Cause is UNKNOWN.
+
+## Implementation state
+
+ADR-011 is `PARTIAL`.
+Retry behavior is represented in WF1, WF3, WF4 and WF5.
+WF6 has a timeout but no retry configuration.
+
+## Runtime verification required
+
+Required evidence:
+
+*   sanitized error code;
+    
+*   provider HTTP status, if present;
+    
+*   request duration;
+    
+*   attempt count;
+    
+*   retry intervals;
+    
+*   request size;
+    
+*   final execution result.
+    
+
+* * *
+
+## 6. Historical Claims Not Canonicalized as Incidents
+
+# ERR-004 — Manual Subworkflow Test Harness Claim
+
+**Record class:** HISTORICAL CLAIM — NON-INCIDENT  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** NOT APPLICABLE  
+**Implementation state:** NOT PRESENT  
+**Runtime verification:** NOT APPLICABLE
+Historical reports describe difficulty supplying mock input to an Execute Workflow Trigger and a temporary Manual Trigger plus Code-node workaround.
+Current canonical WF2:
+
+*   begins with an Execute Workflow Trigger;
+    
+*   does not contain a Manual Trigger;
+    
+*   does not contain the claimed test harness.
+    
+
+This record concerns a development-test technique, not a confirmed production incident.
+It is retained only as a historical claim.
+
+* * *
+
+# ERR-014 — Mass Failure After Import of LLM-Generated Workflow JSON
+
+**Record class:** HISTORICAL CLAIM — NON-INCIDENT  
+**Occurrence:** HISTORICAL CLAIM  
+**Root Cause confidence:** UNKNOWN  
+**Implementation state:** UNKNOWN  
+**Runtime verification:** NOT VERIFIED
+Historical reports describe a broad system failure after importing LLM-generated workflow JSON.
+The accepted evidence baseline does not contain:
+
+*   the imported artifacts;
+    
+*   the affected commit;
+    
+*   import results;
+    
+*   execution logs;
+    
+*   a validated incompatibility report;
+    
+*   a confirmed Root Cause.
+    
+
+The current artifact contract is governed by ADR-024.
+The historical claim is not accepted as a confirmed incident.
+
+* * *
+
+## 7. Cross-Record Historical Claims
+
+The following claims are not canonicalized as current facts without direct evidence:
+
+*   exact incident dates where no timestamped evidence is attached;
+    
+*   exact n8n version responsible for paired-item behavior;
+    
+*   exact provider error text without a sanitized log;
+    
+*   exact impact or severity classification;
+    
+*   exact anti-bot or encryption technology used by target platforms;
+    
+*   claims that contact data was hallucinated and persisted;
+    
+*   claims that UI operations modified database settings;
+    
+*   claims that network instability was the Root Cause of DeepSeek failures;
+    
+*   claims that existing `nodes[].id` must be removed from PUT payloads;
+    
+*   historical Pinecone namespace `osint-knowledge` as a current namespace;
+    
+*   historical vector dimension `768` as a current contract;
+    
+*   claims that a Git commit proves successful deployment;
+    
+*   claims that a configured provider is currently available.
+    
+
+* * *
+
+## 8. Evidence Debt
+
+### ED-001 — Current execution logs
+
+No current sanitized execution logs are included in the approved baseline for the incident records.
+
+### ED-002 — WF2 end-to-end context verification
+
+Required for ERR-001, ERR-008 and ERR-009.
+
+### ED-003 — DeepSeek provider verification
+
+Required for ERR-002, ERR-003 and ERR-016.
+
+### ED-004 — Firecrawl target-specific responses
+
+Required for ERR-005.
+
+### ED-005 — Code-node runtime environment
+
+Required for ERR-006.
+Global Code-node environment access remains `UNKNOWN`.
+
+### ED-006 — IMAP runtime payload
+
+Required for ERR-007.
+
+### ED-007 — Gotenberg runtime conversion
+
+Required for ERR-010.
+The following remain unverified:
+
+*   container availability;
+    
+*   image version;
+    
+*   successful HTML-to-PDF conversion;
+    
+*   output binary integrity.
+    
+
+### ED-008 — Pinecone and Jina live compatibility
+
+Required for ERR-011.
+The following remain unverified:
+
+*   Pinecone index availability;
+    
+*   live index dimension;
+    
+*   embedding-response dimensions;
+    
+*   successful upsert and query.
+    
+
+### ED-009 — Public API runtime update
+
+Required for ERR-012 and ERR-013.
+The following remain unverified:
+
+*   endpoint availability;
+    
+*   API-key validity;
+    
+*   successful sanitized PUT;
+    
+*   server response contract;
+    
+*   Profile D.
+    
+
+### ED-010 — Active and published workflow state
+
+Active and published state remains UNKNOWN for WF1–WF8.
+
+### ED-011 — External-provider availability
+
+Runtime availability remains UNKNOWN for configured providers.
+
+### ED-012 — Credential validity
+
+Credential references exist in canonical workflow JSON.
+Credential validity and permission scopes remain UNKNOWN.
+
+* * *
+
+## 9. Technical Debt and Current Contract Conflicts — Not ERRs
+
+The following are current technical-debt or contract-conflict items.
+They are not incident records unless separate occurrence evidence is established.
+
+### TD-001 — WF1 to WF2 missing `intent`
+
+WF1 does not pass `intent` to WF2.
+WF2 defaults to `search_private`.
+
+### TD-002 — WF1 to WF3 serialized `entities`
+
+WF1 passes serialized `entities`.
+WF3 contains object-style access expectations.
+
+### TD-003 — Direct `site_analysis` contract
+
+WF1 sends direct `site_analysis` work to WF5 without an explicit `entity_type`.
+WF5 defaults to `lead`.
+
+### TD-004 — WF2 `serperResult` consumer mismatch
+
+`Serper Search` stores its response in `serperResult`.
+`Extract URLs` reads root-level `organic`.
+
+### TD-005 — WF6 qualification semantics
+
+`Read Qualified Entities` does not filter by `status=qualified`.
+The `qualified` statistic counts structurally non-empty entities.
+
+### TD-006 — Loop context recovery
+
+WF2 and WF4 contain `$items(..., $runIndex)` and `.item` fallback context recovery.
+
+### TD-007 — Inconsistent external-provider retry configuration
+
+DeepSeek retry settings are not uniform.
+WF6 has no retry fields.
+Other external providers use different timeout and error-handling patterns.
+
+### TD-008 — Unverified loop input indexes
+
+Runtime behavior of done-connections targeting loop input index 1 remains UNKNOWN.
+
+### TD-009 — Unverified Gotenberg Telegram output index
+
+WF6 connects the Telegram delivery node to Gotenberg output index 1.
+Runtime emission of that output is UNKNOWN.
+
+* * *
+
+## 10. Excluded Former Technical-Debt Claims
+
+The following claims are not accepted as current technical debt:
+
+*   `Save Successful Executions: none`;
+    
+*   absence of cron backups as a confirmed fact;
+    
+*   absence of Watchtower as a confirmed fact;
+    
+*   empty PDF reports attributed to Firecrawl failures;
+    
+*   missing Pinecone schema documentation;
+    
+*   calibration data for tender scoring as an incident-evidence gap.
+    
+
+Approved `ENVIRONMENT.md` establishes:
+
+*   workflow-level success-save settings for selected workflows;
+    
+*   global execution retention as UNKNOWN;
+    
+*   backup policy as UNKNOWN;
+    
+*   update policy as UNKNOWN.
+    
+
+* * *
+
+## 11. Current Evidence Classification
+
+### CONFIRMED BY JSON
+
+*   current WF2 response-field configuration;
+    
+*   current WF2 context-recovery patterns;
+    
+*   current WF1 email subject path;
+    
+*   current WF2 `looseTypeValidation`;
+    
+*   current WF6 binary preparation;
+    
+*   current WF7 Jina and Pinecone contract;
+    
+*   current WF4 context-recovery patterns;
+    
+*   current DeepSeek retry and timeout settings.
+    
+
+### CONFIRMED BY APPROVED DOCUMENT
+
+*   GitHub SSOT;
+    
+*   workflow and architecture baselines;
+    
+*   ADR-005 status `PARTIAL`;
+    
+*   ADR-006 status `PARTIAL`;
+    
+*   ADR-009 and ADR-010 implementation;
+    
+*   ADR-011 status `PARTIAL`;
+    
+*   ADR-012 status `UNKNOWN`;
+    
+*   ADR-014 implementation;
+    
+*   ADR-024 closed implementation scope;
+    
+*   global runtime evidence boundaries.
+    
+
+### CONFIRMED BY LIVE DATA
+
+*   compatibility baseline n8n 2.32.7.
+    
+
+### CONFIRMED BY LOGS
+
+*   none in the current approved incident baseline.
+    
+
+### HISTORICAL CLAIM
+
+*   incident occurrences recorded as ERR-001 through ERR-016;
+    
+*   exact error strings not supported by current accepted logs;
+    
+*   historical fixes or workarounds not present in current canonical artifacts.
+    
+
+### UNKNOWN
+
+*   current runtime success of all retained incident remediations;
+    
+*   active or published workflow state;
+    
+*   external-provider availability;
+    
+*   credential validity;
+    
+*   Gotenberg runtime health;
+    
+*   Pinecone live compatibility;
+    
+*   global Code-node environment;
+    
+*   exact Root Cause for most incident records.
+    
+
+### CONFLICT
+
+*   ERR-001 full remediation claim;
+    
+*   ERR-005 protected-target bypass claim;
+    
+*   ERR-009 fully corrected context-access claim;
+    
+*   ERR-013 node-ID removal claim;
+    
+*   current versus historical Pinecone configuration;
+    
+*   uniform DeepSeek retry-policy claim.
+    
+
+* * *
+
+## 12. Verification Checklist
+
+* [x] GitHub repository is identified as SSOT.
+* [x] Workflow JSON baseline is recorded.
+* [x] Closed-document baselines are recorded.
+* [x] Compatibility baseline is n8n 2.32.7.
+* [x] Incident occurrence is separated from Root Cause confidence.
+* [x] Root Cause confidence is separated from implementation state.
+* [x] Implementation state is separated from runtime verification.
+* [x] Historical source markers are excluded as canonical evidence.
+* [x] ERR records are separated from ADRs.
+* [x] ERR records are separated from technical debt.
+* [x] Evidence debt is documented separately.
+* [x] Current contract conflicts are not presented as confirmed historical Root Causes.
+* [x] No secret values are included.
+* [x] Principal Architect approval recorded.
+* [x] Status changed from `REVIEW CANDIDATE` to `APPROVED`.
+* [ ] Runtime evidence attached for retained incident records.
+* [ ] File renamed to `docs/ERROR_HISTORY.md` in a separate approved scope.

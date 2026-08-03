@@ -1095,32 +1095,18 @@ These items require separate ERR, technical specification or runtime evidence.
 
 ## 10. Verification Checklist
 
-*   ADR numbers `001`–`024` are unique.
-    
-*   Every ADR has an evidence-based status.
-    
-*   ADR-009 remains IMPLEMENTED.
-    
-*   ADR-010 remains IMPLEMENTED.
-    
-*   ADR-024 remains ACCEPTED.
-    
-*   ADR-024 implementation scope is COMPLETE.
-    
-*   ADR-024 architectural block is CLOSED.
-    
-*   Profile D remains REQUIRES EVIDENCE — NON-BLOCKING.
-    
-*   Configured dependencies are separated from runtime availability.
-    
-*   Active and published state is not inferred.
-    
-*   Historical unsupported source markers are removed.
-    
-*   Technical debt is separated from ADRs.
-    
-*   Related ERR links verified after error-journal finalization.
-    
-*   File renamed to `docs/DECISIONS.md` in a separate approved scope.
-    
-*   Open decisions receive separate ADRs if the corresponding engineering scope is opened.
+* [x] ADR numbers `001`–`024` are unique.
+* [x] Every ADR has an evidence-based status.
+* [x] ADR-009 remains IMPLEMENTED.
+* [x] ADR-010 remains IMPLEMENTED.
+* [x] ADR-024 remains ACCEPTED.
+* [x] ADR-024 implementation scope is COMPLETE.
+* [x] ADR-024 architectural block is CLOSED.
+* [x] Profile D remains REQUIRES EVIDENCE — NON-BLOCKING.
+* [x] Configured dependencies are separated from runtime availability.
+* [x] Active and published state is not inferred.
+* [x] Historical unsupported source markers are removed.
+* [x] Technical debt is separated from ADRs.
+* [ ] Related ERR links verified after error-journal finalization.
+* [ ] File renamed to `docs/DECISIONS.md` in a separate approved scope.
+* [ ] Open decisions receive separate ADRs if the corresponding engineering scope is opened.

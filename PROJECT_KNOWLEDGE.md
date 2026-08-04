@@ -165,7 +165,7 @@ It does not independently confirm:
 | Decision Register | `docs/DECISIONS_DRAFT.md` | APPROVED | COMPLETE | CLOSED | `4b1b85c5b4f7639b8488bd19e606adfc376e83f9` |
 | Error History Register | `docs/ERROR_HISTORY_DRAFT.md` | APPROVED | COMPLETE | CLOSED | `c3619116ef9e818b814a0a8667f654694929a530` |
 | Project State | `PROJECT_STATE.md` | APPROVED | COMPLETE | CLOSED | `e53628b6ff5f4165742ee6105cb501f516c39cf4` |
-| Project Knowledge | `PROJECT_KNOWLEDGE.md` | REVIEW CANDIDATE | NOT YET APPROVED | OPEN | Current scope |
+| Project Knowledge | `PROJECT_KNOWLEDGE.md` | APPROVED | COMPLETE | CLOSED | `5c08ccaf8bb7a6e843cee63e47ce48d4076f90d2` |
 
 The `_DRAFT` suffix in the approved decision and error-history filenames remains intentional until a separate rename scope is approved.
 No rename is performed or implied by this document.

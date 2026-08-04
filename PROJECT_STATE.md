@@ -181,7 +181,7 @@ A Git commit does not independently prove that the same content is deployed or a
 | Environment | `docs/ENVIRONMENT.md` | APPROVED | COMPLETE | CLOSED | `577ff1c47b192451cc4039e9c99b3daed710d8bc` |
 | Decision Register | `docs/DECISIONS_DRAFT.md` | APPROVED | COMPLETE | CLOSED | `4b1b85c5b4f7639b8488bd19e606adfc376e83f9` |
 | Error History Register | `docs/ERROR_HISTORY_DRAFT.md` | APPROVED | COMPLETE | CLOSED | `c3619116ef9e818b814a0a8667f654694929a530` |
-| Project State | `PROJECT_STATE.md` | REVIEW CANDIDATE | NOT YET APPROVED | OPEN | Current scope |
+| Project State | `PROJECT_STATE.md` | APPROVED | COMPLETE | CLOSED | `340bfd9606624c4ea8b85e8de26ccfbd3a5e9a1c` |
 
 The `_DRAFT` suffix in the approved decision and error-history filenames remains intentional until a separate rename scope is approved.
 No rename is performed or implied by this document.

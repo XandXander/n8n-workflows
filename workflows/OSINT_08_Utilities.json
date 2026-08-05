@@ -1,1 +1,624 @@
-{"id":"IR4oQQAYQgUwIUjJ","name":"OSINT_08_Utilities","nodes":[{"parameters":{},"name":"Start","type":"n8n-nodes-base.executeWorkflowTrigger","typeVersion":1,"position":[-464,304]},{"parameters":{"rules":{"values":[{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"id":"c1","leftValue":"={{ $json.operation }}","rightValue":"stt","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"renameOutput":true,"outputKey":"stt"},{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"id":"c2","leftValue":"={{ $json.operation }}","rightValue":"pdf_from_html","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"renameOutput":true,"outputKey":"pdf"},{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"id":"c3","leftValue":"={{ $json.operation }}","rightValue":"notify_admin","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"renameOutput":true,"outputKey":"notify"},{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"id":"c4","leftValue":"={{ $json.operation }}","rightValue":"throttle_check","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"renameOutput":true,"outputKey":"throttle"}]},"options":{}},"name":"Route Operation","type":"n8n-nodes-base.switch","typeVersion":3.2,"position":[-240,304]},{"parameters":{"url":"=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/getFile?file_id={{ $json.file_id }}","options":{"timeout":30000}},"name":"Telegram Get File Info","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[0,0]},{"parameters":{"url":"=https://api.telegram.org/file/bot{{ $env.TELEGRAM_BOT_TOKEN }}/{{ $json.result.file_path }}","options":{"response":{"response":{"responseFormat":"file"}},"timeout":60000}},"name":"Telegram Download Audio","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[240,0]},{"parameters":{"method":"POST","url":"https://api.groq.com/openai/v1/audio/transcriptions","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","sendBody":true,"contentType":"multipart-form-data","bodyParameters":{"parameters":[{"parameterType":"formBinaryData","name":"file","inputDataFieldName":"data"},{"name":"model","value":"whisper-large-v3"},{"name":"language","value":"ru"},{"name":"response_format","value":"json"}]},"options":{"timeout":120000}},"name":"Groq Whisper STT","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[480,0],"credentials":{"httpHeaderAuth":{"id":"b1G9RjkTQaFLBXco","name":"Groq"}}},{"parameters":{"assignments":{"assignments":[{"id":"1","name":"text","value":"={{ $json.text }}","type":"string"},{"id":"2","name":"operation","value":"stt","type":"string"}]},"options":{}},"name":"Return STT","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[720,0]},{"parameters":{"method":"POST","url":"http://gotenberg:3000/forms/chromium/convert/html","sendBody":true,"contentType":"multipart-form-data","bodyParameters":{"parameters":[{"parameterType":"formBinaryData","name":"files","inputDataFieldName":"index.html"},{"name":"paperWidth","value":"8.27"},{"name":"paperHeight","value":"11.69"},{"name":"marginTop","value":"0.5"},{"name":"marginBottom","value":"0.5"},{"name":"marginLeft","value":"0.5"},{"name":"marginRight","value":"0.5"}]},"options":{"response":{"response":{"responseFormat":"file"}},"timeout":120000}},"name":"Gotenberg PDF","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[0,208]},{"parameters":{"assignments":{"assignments":[{"id":"1","name":"operation","value":"pdf_from_html","type":"string"},{"id":"2","name":"filename","value":"={{ $('Start').first().json.filename || 'report.pdf' }}","type":"string"}]},"options":{}},"name":"Return PDF","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[240,208]},{"parameters":{"operation":"append","documentId":{"__rl":true,"value":"1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA","mode":"id"},"sheetName":{"__rl":true,"mode":"name","value":"logs"},"columns":{"mappingMode":"defineBelow","value":{"ts":"={{ new Date().toISOString() }}","workflow":"={{ $json.workflow || '' }}","node":"={{ $json.node || '' }}","level":"={{ $json.level || 'info' }}","job_id":"={{ $json.job_id || '' }}","message":"={{ $json.message || '' }}","payload_short":"={{ JSON.stringify($json).slice(0,500) }}"},"matchingColumns":[],"schema":[{"id":"ts","displayName":"ts","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"workflow","displayName":"workflow","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"node","displayName":"node","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"level","displayName":"level","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"job_id","displayName":"job_id","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"message","displayName":"message","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"payload_short","displayName":"payload_short","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true}],"attemptToConvertTypes":false,"convertFieldsToString":false},"options":{}},"name":"Log to Sheets","type":"n8n-nodes-base.googleSheets","typeVersion":4.5,"position":[0,400],"credentials":{"googleSheetsOAuth2Api":{"id":"dUZaJdXfgHXwnmNN","name":"Google Sheets account"}}},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"id":"c1","leftValue":"={{ $('Start').first().json.level }}","rightValue":"error","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"options":{}},"name":"If Error Level","type":"n8n-nodes-base.if","typeVersion":2.2,"position":[240,400]},{"parameters":{"chatId":"={{ $env.ADMIN_CHAT_ID }}","text":"=🚨 *OSINT Error*\n\n*WF*: {{ $('Start').first().json.workflow }}\n*Job*: `{{ $('Start').first().json.job_id }}`\n*Message*: {{ $('Start').first().json.message }}","additionalFields":{"parse_mode":"Markdown"}},"name":"Telegram Notify Admin","type":"n8n-nodes-base.telegram","typeVersion":1.2,"position":[480,400],"credentials":{"telegramApi":{"id":"Xw7qHzoLSGuJnpZr","name":"Telegram account"}}},{"parameters":{"jsCode":"const item = $input.first();\nif (!item || !item.json) {\n  throw new Error(\"Throttle Check: no input data.\");\n}\n\nconst service = (item.json.service || '').toString().trim();\nif (!service) {\n  throw new Error(\"Throttle Check: 'service' is required.\");\n}\n\nconst limits = {\n  deepseek: 3,\n  groq: 5,\n  serper: 10,\n  tavily: 5,\n  firecrawl: 3,\n  jina: 20\n};\nconst maxRequests = limits[service] || 5;\nconst windowMs = 1000;\n\nconst staticData = this.getWorkflowStaticData('global');\n\nif (!staticData.throttleState) {\n  staticData.throttleState = {};\n}\n\nconst now = Date.now();\nconst state = staticData.throttleState[service] || { windowStart: now, count: 0 };\n\nif (now - state.windowStart > windowMs) {\n  state.windowStart = now;\n  state.count = 0;\n}\n\nif (state.count >= maxRequests) {\n  const retryAfterMs = windowMs - (now - state.windowStart);\n  staticData.throttleState[service] = state;\n  return [{\n    json: {\n      allowed: false,\n      service,\n      limit: maxRequests,\n      current: state.count,\n      retryAfter: Math.max(1, Math.ceil(retryAfterMs / 1000)),\n      windowMs\n    }\n  }];\n}\n\nstate.count++;\nstaticData.throttleState[service] = state;\n\nreturn [{\n  json: {\n    allowed: true,\n    service,\n    limit: maxRequests,\n    current: state.count,\n    remaining: maxRequests - state.count,\n    windowMs\n  }\n}];"},"name":"Throttle Check","type":"n8n-nodes-base.code","typeVersion":2,"position":[0,608]}],"connections":{"Start":{"main":[[{"node":"Route Operation","type":"main","index":0}]]},"Route Operation":{"main":[[{"node":"Telegram Get File Info","type":"main","index":0}],[{"node":"Gotenberg PDF","type":"main","index":0}],[{"node":"Log to Sheets","type":"main","index":0}],[{"node":"Throttle Check","type":"main","index":0}]]},"Telegram Get File Info":{"main":[[{"node":"Telegram Download Audio","type":"main","index":0}]]},"Telegram Download Audio":{"main":[[{"node":"Groq Whisper STT","type":"main","index":0}]]},"Groq Whisper STT":{"main":[[{"node":"Return STT","type":"main","index":0}]]},"Gotenberg PDF":{"main":[[{"node":"Return PDF","type":"main","index":0}]]},"Log to Sheets":{"main":[[{"node":"If Error Level","type":"main","index":0}]]},"If Error Level":{"main":[[{"node":"Telegram Notify Admin","type":"main","index":0}]]}},"settings":{}}
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        304
+      ],
+      "id": "bd4a4aa2-5e86-4766-aadf-4b15ab1f5e79"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c1",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "stt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "stt"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c2",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "pdf_from_html",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pdf"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c3",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "notify_admin",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "notify"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "c4",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "throttle_check",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "throttle"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -240,
+        304
+      ],
+      "id": "1db6ad51-6526-4c59-800b-4c8faff9e627"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/getFile?file_id={{ $json.file_id }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Telegram Get File Info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fab2b6c4-0c75-4a11-9180-3921e65078e6"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/file/bot{{ $env.TELEGRAM_BOT_TOKEN }}/{{ $json.result.file_path }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Telegram Download Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "7b7aa5fe-78ca-49bd-9e83-53d4c3beb585"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "whisper-large-v3"
+            },
+            {
+              "name": "language",
+              "value": "ru"
+            },
+            {
+              "name": "response_format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Groq Whisper STT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "id": "4a3ad15a-2d4d-4dd4-996b-a6739eb2337b",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "b1G9RjkTQaFLBXco",
+          "name": "Groq"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "operation",
+              "value": "stt",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Return STT",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        0
+      ],
+      "id": "2bbd7702-48e3-43f4-8b1e-c117b7d7e95b"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "index.html"
+            },
+            {
+              "name": "paperWidth",
+              "value": "8.27"
+            },
+            {
+              "name": "paperHeight",
+              "value": "11.69"
+            },
+            {
+              "name": "marginTop",
+              "value": "0.5"
+            },
+            {
+              "name": "marginBottom",
+              "value": "0.5"
+            },
+            {
+              "name": "marginLeft",
+              "value": "0.5"
+            },
+            {
+              "name": "marginRight",
+              "value": "0.5"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "name": "Gotenberg PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        208
+      ],
+      "id": "2ae1eb14-6780-4a21-ac6f-862f550a91c5"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "operation",
+              "value": "pdf_from_html",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "filename",
+              "value": "={{ $('Start').first().json.filename || 'report.pdf' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Return PDF",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        208
+      ],
+      "id": "0258344e-b3ae-4b94-bf59-7ec04036b8dc"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ts": "={{ new Date().toISOString() }}",
+            "workflow": "={{ $json.workflow || '' }}",
+            "node": "={{ $json.node || '' }}",
+            "level": "={{ $json.level || 'info' }}",
+            "job_id": "={{ $json.job_id || '' }}",
+            "message": "={{ $json.message || '' }}",
+            "payload_short": "={{ JSON.stringify($json).slice(0,500) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ts",
+              "displayName": "ts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "level",
+              "displayName": "level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload_short",
+              "displayName": "payload_short",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Log to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        0,
+        400
+      ],
+      "id": "0a88d84f-13ac-4a90-8151-aae53cc70667",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dUZaJdXfgHXwnmNN",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Start').first().json.level }}",
+              "rightValue": "error",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "If Error Level",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        400
+      ],
+      "id": "0862e599-cb66-4c8b-ac73-ae4d4d9c9eeb"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.ADMIN_CHAT_ID }}",
+        "text": "=🚨 *OSINT Error*\n\n*WF*: {{ $('Start').first().json.workflow }}\n*Job*: `{{ $('Start').first().json.job_id }}`\n*Message*: {{ $('Start').first().json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Telegram Notify Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        400
+      ],
+      "id": "111da7da-3d9a-40fb-8be1-d7342e80ec85",
+      "webhookId": "fc7f8ede-415e-4d7b-a1df-93fc45768c7c",
+      "credentials": {
+        "telegramApi": {
+          "id": "Xw7qHzoLSGuJnpZr",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nif (!item || !item.json) {\n  throw new Error(\"Throttle Check: no input data.\");\n}\n\nconst service = (item.json.service || '').toString().trim();\nif (!service) {\n  throw new Error(\"Throttle Check: 'service' is required.\");\n}\n\nconst limits = {\n  deepseek: 3,\n  groq: 5,\n  serper: 10,\n  tavily: 5,\n  firecrawl: 3,\n  jina: 20\n};\nconst maxRequests = limits[service] || 5;\nconst windowMs = 1000;\n\nconst staticData = this.getWorkflowStaticData('global');\n\nif (!staticData.throttleState) {\n  staticData.throttleState = {};\n}\n\nconst now = Date.now();\nconst state = staticData.throttleState[service] || { windowStart: now, count: 0 };\n\nif (now - state.windowStart > windowMs) {\n  state.windowStart = now;\n  state.count = 0;\n}\n\nif (state.count >= maxRequests) {\n  const retryAfterMs = windowMs - (now - state.windowStart);\n  staticData.throttleState[service] = state;\n  return [{\n    json: {\n      allowed: false,\n      service,\n      limit: maxRequests,\n      current: state.count,\n      retryAfter: Math.max(1, Math.ceil(retryAfterMs / 1000)),\n      windowMs\n    }\n  }];\n}\n\nstate.count++;\nstaticData.throttleState[service] = state;\n\nreturn [{\n  json: {\n    allowed: true,\n    service,\n    limit: maxRequests,\n    current: state.count,\n    remaining: maxRequests - state.count,\n    windowMs\n  }\n}];"
+      },
+      "name": "Throttle Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        608
+      ],
+      "id": "f034a723-172b-468b-8c52-bc26e025af16"
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Telegram Get File Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gotenberg PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Throttle Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Get File Info": {
+      "main": [
+        [
+          {
+            "node": "Telegram Download Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Download Audio": {
+      "main": [
+        [
+          {
+            "node": "Groq Whisper STT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Whisper STT": {
+      "main": [
+        [
+          {
+            "node": "Return STT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gotenberg PDF": {
+      "main": [
+        [
+          {
+            "node": "Return PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Sheets": {
+      "main": [
+        [
+          {
+            "node": "If Error Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Error Level": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "65dd5bfdd5bd23c4610ca6a25496958f6e139a7aa0be700c2c525059b427f26d"
+  }
+}

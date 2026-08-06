@@ -53,7 +53,8 @@
         "options": {
           "response": {
             "response": {
-              "responseFormat": "json"
+              "responseFormat": "json",
+              "putOutputInField": "serperResult"
             }
           },
           "timeout": 30000

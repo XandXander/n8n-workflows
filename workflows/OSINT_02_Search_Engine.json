@@ -615,6 +615,20 @@
     },
     {
       "parameters": {
+        "amount": 120
+      },
+      "name": "Wait Before Analyst",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        960
+      ],
+      "webhookId": "c5d2e8a1-b456-4e12-9def-abc123456789",
+      "id": "6a7b8c9d-0001-4e5f-a3b4-c5d6e7f8a901"
+    },
+    {
+      "parameters": {
         "workflowId": {
           "__rl": true,
           "value": "viR4AZBaC4CFA4qx",
@@ -635,7 +649,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        288,
+        512,
         960
       ],
       "id": "2e5553be-98ab-4e4c-ba06-2992b56a1f17"
@@ -714,7 +728,7 @@
       "main": [
         [
           {
-            "node": "Run Analyst",
+            "node": "Wait Before Analyst",
             "type": "main",
             "index": 0
           }
@@ -722,6 +736,17 @@
         [
           {
             "node": "Serper Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Analyst": {
+      "main": [
+        [
+          {
+            "node": "Run Analyst",
             "type": "main",
             "index": 0
           }
@@ -911,6 +936,7 @@
       ]
     }
   },
+  "settings": {},
   "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,

@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Decision authority:** Principal Architect  
 > **Repository SSOT:** `XandXander/n8n-workflows`  
-> **Workflow JSON baseline:** `8420e423c98dcb1d11fa02f554e0674b9705bb81`  
+> **Workflow JSON baseline:** `beb2e716f94abfdd674d946962e01fad868127c5`  
 > **WORKFLOW_MAP baseline:** `ad9e9b92c7d76f76154d4b322f829c70ff1597e1`  
 > **ARCHITECTURE baseline:** `ef1abcf42293c67dae068efe88e8b41a15cd9059`  
 > **ENVIRONMENT baseline:** `577ff1c47b192451cc4039e9c99b3daed710d8bc`  
@@ -98,7 +98,7 @@ Related ERR identifiers are not canonicalized in this revision because the error
 | ADR-002 | DeepSeek model allocation | IMPLEMENTED | WF1, WF3, WF4, WF5, WF6 |
 | ADR-003 | Google Sheets operational state boundary | IMPLEMENTED | WF1–WF6, WF8 |
 | ADR-004 | Execute Workflow communication model | IMPLEMENTED | WF1–WF8 |
-| ADR-005 | HTTP response preservation with Put Output in Field | PARTIAL | WF2 |
+| ADR-005 | HTTP response preservation with Put Output in Field | IMPLEMENTED | WF2 |
 | ADR-006 | Gotenberg HTML-to-PDF service | PARTIAL | WF6, WF8 |
 | ADR-007 | `prepareBinaryData` for Gotenberg HTML input | IMPLEMENTED | WF6 |
 | ADR-008 | Sandbox-safe canonical Code-node patterns | IMPLEMENTED | WF1–WF8 |
@@ -273,35 +273,51 @@ Asynchronous calls require persistence-based coordination and do not prove downs
 
 # ADR-005 — HTTP Response Preservation with Put Output in Field
 
-**Status:** PARTIAL  
+**Status:** IMPLEMENTED  
 **Affected components:** WF2  
-**Evidence:** CONFIRMED BY JSON; CONFLICT
+**Evidence:** CONFIRMED BY GITHUB @ `beb2e71`; Runtime: NOT VERIFIED
 
 ## Decision
 
 Preserve HTTP response data in dedicated fields:
 
 *   Serper → `serperResult`;
-    
+
 *   Firecrawl → `firecrawlResult`.
-    
+
 
 ## Implementation evidence
 
-Both HTTP nodes configure `putOutputInField`.
+Repository artifacts represent both static response-preservation contracts:
 
-## Partial implementation
+```text
+Serper Search → serperResult
+Extract URLs → serperResult.organic
+Firecrawl Scrape → firecrawlResult
+Extract Contacts → firecrawlResult
+```
 
-*   Firecrawl downstream handling reads `firecrawlResult`.
-    
-*   Serper `Extract URLs` reads root-level `organic`.
-    
-*   Context recovery still uses `$items(..., $runIndex)` and `.item` fallback.
-    
+Evidence:
+
+```text
+CONFIRMED BY GITHUB
+beb2e716f94abfdd674d946962e01fad868127c5
+fix: align Serper response output field
+Runtime: NOT VERIFIED
+```
+
+## Repository-static closure trace
+
+```text
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+MIS-001 — CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED
+```
+
+The previous `PARTIAL` ADR-005 state is retained only as pre-`beb2e71` repository history. TD-006 remains separate for `$items(..., $runIndex)` and `.item` recovery and is not closed by this ADR.
 
 ## Consequences
 
-The node-level response-preservation mechanism exists, but the full downstream contract is not consistently implemented.
+The repository-artifact response-preservation decision is implemented for the documented Serper and Firecrawl contracts. This does not prove active/published state, provider availability, credential validity, actual runtime response payloads, execution logs, or end-to-end success.
 
 * * *
 
@@ -986,8 +1002,6 @@ The following are not architectural decisions:
     
 *   direct `site_analysis` contract;
     
-*   WF2 `serperResult` consumer mismatch;
-    
 *   WF6 qualification semantics;
     
 *   `$items(..., $runIndex)` context recovery;
@@ -1029,7 +1043,9 @@ These items require separate ERR, technical specification or runtime evidence.
     
 *   dynamic sheet selection;
     
-*   current Groq caller.
+*   current Groq caller;
+    
+*   ADR-005 repository-static HTTP response preservation contracts confirmed at `beb2e71`.
     
 
 ### CONFIRMED BY APPROVED DOCUMENT
@@ -1078,8 +1094,6 @@ These items require separate ERR, technical specification or runtime evidence.
 
 ### CONFLICT
 
-*   ADR-005 full-contract claim;
-    
 *   ADR-012 Firecrawl bypass;
     
 *   ADR-017 `postProcessAction`;

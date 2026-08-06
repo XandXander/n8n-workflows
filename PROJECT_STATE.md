@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Decision authority:** Principal Architect  
 > **Repository SSOT:** `XandXander/n8n-workflows`  
-> **Workflow JSON baseline:** `8420e423c98dcb1d11fa02f554e0674b9705bb81`  
+> **Workflow JSON baseline:** `beb2e716f94abfdd674d946962e01fad868127c5`  
 > **WORKFLOW_MAP baseline:** `ad9e9b92c7d76f76154d4b322f829c70ff1597e1`  
 > **ARCHITECTURE baseline:** `ef1abcf42293c67dae068efe88e8b41a15cd9059`  
 > **ENVIRONMENT baseline:** `577ff1c47b192451cc4039e9c99b3daed710d8bc`  
@@ -342,6 +342,8 @@ The following implementation facts are confirmed:
 *   Google Sheets sheet references;
     
 *   Serper configuration in WF2, WF3 and WF4;
+
+*   WF2 static Serper contract: `Serper Search` `putOutputInField = serperResult`, `Extract URLs` consumes `serperResult.organic`, static producer/consumer alignment CONFIRMED BY GITHUB @ `beb2e71`;
     
 *   Tavily configuration in WF4;
     
@@ -681,7 +683,7 @@ The runtime deployment state remains separate and unknown.
 | ADR-002 | DeepSeek model allocation | IMPLEMENTED |
 | ADR-003 | Google Sheets operational state boundary | IMPLEMENTED |
 | ADR-004 | Execute Workflow communication model | IMPLEMENTED |
-| ADR-005 | HTTP response preservation with Put Output in Field | PARTIAL |
+| ADR-005 | HTTP response preservation with Put Output in Field | IMPLEMENTED |
 | ADR-006 | Gotenberg HTML-to-PDF service | PARTIAL |
 | ADR-007 | `prepareBinaryData` for Gotenberg HTML input | IMPLEMENTED |
 | ADR-008 | Sandbox-safe canonical Code-node patterns | IMPLEMENTED |
@@ -807,6 +809,15 @@ The project state must not convert historical incident claims into current failu
 
 The current canonical technical-debt register contains:
 
+```text
+TD-001 — CONFIRMED OPEN
+TD-002 — CONFIRMED OPEN
+TD-003 — CONFIRMED OPEN
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+TD-005 — CONFIRMED OPEN
+```
+
+
 ### TD-001 — WF1 to WF2 missing `intent`
 
 WF1 does not pass `intent` to WF2.
@@ -822,10 +833,16 @@ WF3 contains object-style entity access expectations.
 WF1 sends direct `site_analysis` work to WF5 without an explicit `entity_type`.
 WF5 defaults to `lead`.
 
-### TD-004 — WF2 `serperResult` consumer mismatch
+### TD-004 — WF2 Serper static response-path alignment
+
+```text
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+```
 
 `Serper Search` stores its response in `serperResult`.
-`Extract URLs` reads root-level `organic`.
+`Extract URLs` consumes `serperResult.organic`.
+
+Repository-static alignment is CONFIRMED BY GITHUB @ `beb2e71`; runtime remains to verify.
 
 ### TD-005 — WF6 qualification semantics
 
@@ -1047,6 +1064,9 @@ Any implementation work must proceed through its appropriate scope:
 | Eight canonical workflow JSON files | CONFIRMED BY JSON |
 | Workflow architecture | IMPLEMENTED |
 | Workflow graph | CONFIRMED BY JSON |
+| Repository implementation baseline | beb2e716f94abfdd674d946962e01fad868127c5 / CONFIRMED BY GITHUB |
+| TD-004 | STATICALLY RESOLVED / RUNTIME TO VERIFY |
+| MIS-001 | CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED |
 | Closed document set | COMPLETE |
 | ADR-024 implementation scope | COMPLETE |
 | ADR-024 architectural block | CLOSED |
@@ -1063,6 +1083,17 @@ Any implementation work must proceed through its appropriate scope:
 | Evidence debt | 12 canonical records |
 | Open architectural decisions | 3 |
 | Current approved implementation plan | NONE IN THIS DOCUMENT |
+
+Current MIS/TD closure status:
+
+```text
+TD-001 — CONFIRMED OPEN
+TD-002 — CONFIRMED OPEN
+TD-003 — CONFIRMED OPEN
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+TD-005 — CONFIRMED OPEN
+MIS-001 — CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED
+```
 
 * * *
 
@@ -1096,7 +1127,9 @@ Any implementation work must proceed through its appropriate scope:
     
 *   configured report storage and delivery paths;
     
-*   current technical contract conflicts represented in JSON.
+*   current technical contract conflicts represented in JSON;
+    
+*   WF2 Serper static producer/consumer alignment: `Serper Search` stores `serperResult`, `Extract URLs` consumes `serperResult.organic`, CONFIRMED BY GITHUB @ `beb2e71`.
     
 
 ### CONFIRMED BY APPROVED DOCUMENT
@@ -1198,13 +1231,11 @@ Any implementation work must proceed through its appropriate scope:
 
 ### CONFLICT
 
-*   WF2 `serperResult` output versus root-level `organic` consumer;
-    
 *   historical protected-target bypass claim versus current WF2;
     
 *   historical node-ID removal claim versus ADR-010 and ADR-024;
     
-*   historical full HTTP response-preservation claim versus ADR-005 `PARTIAL`;
+*   historical full runtime HTTP response-preservation claim beyond ADR-005 repository-artifact implementation;
     
 *   historical uniform retry-policy claim versus current workflow configuration;
     

@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Decision authority:** Principal Architect  
 > **Repository SSOT:** `XandXander/n8n-workflows`  
-> **Workflow JSON baseline:** `8420e423c98dcb1d11fa02f554e0674b9705bb81`  
+> **Workflow JSON baseline:** `beb2e716f94abfdd674d946962e01fad868127c5`  
 > **WORKFLOW_MAP baseline:** `ad9e9b92c7d76f76154d4b322f829c70ff1597e1`  
 > **ARCHITECTURE baseline:** `ef1abcf42293c67dae068efe88e8b41a15cd9059`  
 > **ENVIRONMENT baseline:** `577ff1c47b192451cc4039e9c99b3daed710d8bc`  
@@ -797,22 +797,25 @@ The availability of `Buffer`, `crypto`, `require()` or global environment access
 When an HTTP Request node is configured to place its response in a field:
 
 *   downstream consumers must read the same field;
-    
-*   original context must remain available;
-    
-*   consumer paths must be validated against actual output shape;
-    
-*   a configured output field does not prove that all downstream consumers are aligned.
-    
 
-Current WF2 response preservation remains `PARTIAL` because:
+*   original context must remain available;
+
+*   consumer paths must be validated against actual output shape;
+
+*   a configured output field does not prove actual runtime payload shape or successful downstream execution.
+
+
+Current WF2 repository-static response preservation is:
 
 ```text
-Serper Search output: serperResult
-Extract URLs consumer: root-level organic
+Serper Search output field: serperResult
+Extract URLs consumer path: serperResult.organic
+Repository-static alignment: CONFIRMED BY GITHUB @ beb2e71
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+MIS-001 — CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED
 ```
 
-This is TD-004 and must not be silently described as resolved.
+The configured output field and aligned consumer path do not prove the actual runtime response shape, non-empty organic results, successful downstream processing, or end-to-end execution.
 
 ### 12.6 Loop-context rule
 
@@ -1216,8 +1219,8 @@ The canonical decision register contains 24 ADRs.
 
 | Status | ADR |
 | --- | --- |
-| IMPLEMENTED | ADR-001, ADR-002, ADR-003, ADR-004, ADR-007, ADR-008, ADR-009, ADR-010, ADR-013, ADR-014, ADR-016 |
-| PARTIAL | ADR-005, ADR-006, ADR-011, ADR-023 |
+| IMPLEMENTED | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005, ADR-007, ADR-008, ADR-009, ADR-010, ADR-013, ADR-014, ADR-016 |
+| PARTIAL | ADR-006, ADR-011, ADR-023 |
 | UNKNOWN | ADR-012, ADR-017, ADR-018, ADR-019, ADR-022 |
 | REQUIRES VERIFICATION | ADR-015 |
 | REJECTED | ADR-020 |
@@ -1365,7 +1368,7 @@ The canonical technical-debt register contains nine records.
 | TD-001 | WF1 to WF2 missing `intent` |
 | TD-002 | WF1 to WF3 serialized `entities` |
 | TD-003 | Direct `site_analysis` contract |
-| TD-004 | WF2 `serperResult` consumer mismatch |
+| TD-004 | STATICALLY RESOLVED / RUNTIME TO VERIFY — WF2 Serper static response-path alignment |
 | TD-005 | WF6 qualification semantics |
 | TD-006 | Loop context recovery |
 | TD-007 | Inconsistent external-provider retry configuration |
@@ -1719,6 +1722,9 @@ Collect:
 | Repository SSOT | CONFIRMED BY APPROVED DOCUMENT |
 | Canonical workflows | Eight, CONFIRMED BY JSON |
 | Compatibility baseline | n8n 2.32.7, CONFIRMED BY LIVE DATA |
+| Repository implementation baseline | beb2e716f94abfdd674d946962e01fad868127c5 / CONFIRMED BY GITHUB |
+| TD-004 | STATICALLY RESOLVED / RUNTIME TO VERIFY |
+| MIS-001 | CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED |
 | Workflow deployment | UNKNOWN |
 | Active/published state | UNKNOWN |
 | End-to-end runtime state | UNKNOWN |
@@ -1762,7 +1768,9 @@ Collect:
     
 *   workflow-level retry and timeout fields;
     
-*   current technical contract conflicts represented in JSON.
+*   current technical contract conflicts represented in JSON;
+    
+*   WF2 Serper static producer/consumer alignment: `Serper Search` stores `serperResult`, `Extract URLs` consumes `serperResult.organic`, CONFIRMED BY GITHUB @ `beb2e71`.
     
 
 ### CONFIRMED BY APPROVED DOCUMENT
@@ -1846,13 +1854,11 @@ Collect:
 
 ### CONFLICT
 
-*   WF2 `serperResult` output versus root-level `organic` consumer;
-    
 *   historical protected-target bypass claim versus current WF2;
     
 *   historical node-ID removal claim versus ADR-010 and ADR-024;
     
-*   historical full response-preservation claim versus ADR-005 `PARTIAL`;
+*   historical full runtime response-preservation claim beyond ADR-005 repository-artifact implementation;
     
 *   historical uniform retry-policy claim versus current JSON;
     

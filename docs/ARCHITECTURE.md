@@ -5,7 +5,7 @@
 > **Owner:** Open WebUI / AI Engineer
 > **Final approver:** ChatGPT / Principal Architect
 > **Source of truth:** GitHub repository
-> **Evidence baseline:** `docs/WORKFLOW_MAP.md` at commit `ad9e9b92c7d76f76154d4b322f829c70ff1597e1`; workflow JSON at commit `8420e423c98dcb1d11fa02f554e0674b9705bb81`
+> **Evidence baseline:** `docs/WORKFLOW_MAP.md` at commit `ad9e9b92c7d76f76154d4b322f829c70ff1597e1`; workflow JSON at commit `beb2e716f94abfdd674d946962e01fad868127c5`
 > **Compatibility baseline:** n8n 2.32.7
 > **Last updated:** 2026-08-02
 
@@ -601,7 +601,7 @@ It does not block the existing update pipeline.
 
 ## 14. Confirmed Contract Conflicts
 
-These conflicts describe incompatible current contracts. They do not establish root causes or authorize workflow changes.
+The current conflicts describe incompatible current contracts. They do not establish root causes or authorize workflow changes. `CONFLICT-ARCH-004` is retained below only as a repository-history resolution note and is not counted as a current contract conflict.
 
 ### CONFLICT-ARCH-001 — WF1 → WF2 intent
 
@@ -623,11 +623,23 @@ WF5 defaults missing `entity_type` to `lead` and reads the `leads` table.
 
 The passed `entities` field is not consumed by WF5.
 
-### CONFLICT-ARCH-004 — WF2 Serper response path
+### CONFLICT-ARCH-004 — WF2 Serper response path — repository-static resolved
 
-`Serper Search` stores the HTTP response in `serperResult`.
+The pre-`beb2e71` repository baseline contained a Serper producer/consumer mismatch.
 
-`Extract URLs` reads root-level `organic`.
+Commit `beb2e71` removes that mismatch from canonical WF2:
+
+```text
+Extract URLs consumes serperResult.organic.
+```
+
+```text
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+MIS-001 — CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED
+Repository evidence: CONFIRMED BY GITHUB @ beb2e71
+```
+
+Runtime behavior remains unverified.
 
 ### CONFLICT-ARCH-005 — WF6 qualification semantics
 
@@ -674,7 +686,8 @@ Unknowns must not be converted into confirmed facts without new evidence.
 * table names and explicit column mappings;
 * configured external integrations;
 * absence of a people-verification branch;
-* five current contract conflicts.
+* WF2 Serper static producer/consumer contract: `Serper Search` stores its response in `serperResult`, and `Extract URLs` consumes `serperResult.organic`;
+* four current contract conflicts.
 
 ### CONFIRMED BY LIVE DATA
 

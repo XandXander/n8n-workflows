@@ -1,7 +1,7 @@
 # WORKFLOW_MAP.md
 
 > **Status:** APPROVED  
-> **Evidence baseline:** Git commit `8420e423c98dcb1d11fa02f554e0674b9705bb81`  
+> **Evidence baseline:** Git commit `beb2e716f94abfdd674d946962e01fad868127c5`  
 > **Compatibility baseline:** n8n 2.32.7  
 > **Source of truth:** `workflows/OSINT_*.json` in GitHub  
 > **Live active/published state:** UNKNOWN unless explicitly supported by separate live evidence
@@ -438,7 +438,7 @@ After the outer query loop is done, WF2 dispatches to WF5:
     
 3.  `Serper Search` stores its response in `serperResult`.
     
-4.  `Extract URLs` produces at most three URL items per query.
+4.  `Extract URLs` consumes `serperResult.organic` and produces at most three URL items per query.
     
 5.  `Filter Empty`:
     *   true → `Loop URLs`;
@@ -494,7 +494,7 @@ The JSON connects the outer-loop done-output to input index 1 of `Run Analyst`. 
     
 *   WF1 does not pass `intent`; query-matrix differentiation between private, B2B and deep OSINT is not established at the workflow boundary.
     
-*   `Serper Search` writes to `serperResult`, while `Extract URLs` reads root-level `organic`.
+*   Static WF2 Serper producer/consumer alignment is confirmed by GitHub at `beb2e71`; actual runtime Serper payload shape and non-empty `serperResult.organic` output remain unverified.
     
 *   Context restoration still uses `$items(..., $runIndex)` and `.item` fallback.
     
@@ -1388,7 +1388,11 @@ The following are confirmed by the eight workflow JSON files:
     
 *   external service endpoints referenced by nodes;
     
-*   absence of a dedicated people-verification branch.
+*   absence of a dedicated people-verification branch;
+    
+*   WF2 Serper static producer/consumer contract: `Serper Search` stores its response in `serperResult`, and `Extract URLs` consumes `serperResult.organic`;
+    
+*   TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY; MIS-001 — CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED; Evidence: CONFIRMED BY GITHUB @ `beb2e71`.
     
 
 ### CONFIRMED BY LIVE DATA
@@ -1428,6 +1432,4 @@ The following contract conflicts are recorded without diagnosing or fixing them 
     
 3.  WF1 direct `site_analysis` does not pass `entity_type`; WF5 defaults to `lead`.
     
-4.  WF2 stores Serper response in `serperResult`, while `Extract URLs` reads root `organic`.
-    
-5.  WF6 labels all non-empty read entities as `qualified`.
+4.  WF6 labels all non-empty read entities as `qualified`.

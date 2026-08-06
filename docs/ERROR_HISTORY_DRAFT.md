@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Decision authority:** Principal Architect  
 > **Repository SSOT:** `XandXander/n8n-workflows`  
-> **Workflow JSON baseline:** `8420e423c98dcb1d11fa02f554e0674b9705bb81`  
+> **Workflow JSON baseline:** `beb2e716f94abfdd674d946962e01fad868127c5`  
 > **WORKFLOW_MAP baseline:** `ad9e9b92c7d76f76154d4b322f829c70ff1597e1`  
 > **ARCHITECTURE baseline:** `ef1abcf42293c67dae068efe88e8b41a15cd9059`  
 > **ENVIRONMENT baseline:** `577ff1c47b192451cc4039e9c99b3daed710d8bc`  
@@ -314,43 +314,39 @@ No accepted execution log is currently attached to this record.
 Canonical WF2 contains:
 
 *   `Serper Search` with response output field `serperResult`;
-    
-*   `Firecrawl Scrape` with response output field `firecrawlResult`;
-    
-*   `Extract URLs` reading root-level `organic`;
-    
-*   `$items("Loop Queries", 0, $runIndex)` context recovery;
-    
-*   `.item` fallback context recovery;
-    
-*   `Extract Contacts` reading `firecrawlResult`.
-    
 
-The current response-preservation contract is internally inconsistent.
+*   `Extract URLs` consuming `serperResult.organic`;
+
+*   repository-static alignment `CONFIRMED BY GITHUB @ beb2e71`;
+
+*   `Firecrawl Scrape` with response output field `firecrawlResult`;
+
+*   `$items("Loop Queries", 0, $runIndex)` context recovery;
+
+*   `.item` fallback context recovery;
+
+*   `Extract Contacts` reading `firecrawlResult`.
+
+The pre-`beb2e71` Serper producer/consumer mismatch is no longer a current repository-static conflict.
 
 ## Root Cause assessment
 
-The current mismatch between:
+At the pre-`beb2e71` repository baseline, the Serper producer/consumer mismatch supported a possible response-path failure mechanism. Commit `beb2e71` removes that mismatch from canonical WF2.
 
-```text
-Serper output → serperResult
-```
-
-and:
-
-```text
-Extract URLs input → root-level organic
-```
-
-supports a response-path failure mechanism.
-The evidence does not prove that this mismatch was the sole Root Cause of every historical empty-lead execution.
+This does not prove that the mismatch was the sole historical Root Cause or that runtime remediation succeeds.
 
 ## Implementation state
 
-ADR-005 is `PARTIAL`.
+ADR-005 is `IMPLEMENTED` for repository artifacts only.
 Firecrawl downstream handling is aligned with `firecrawlResult`.
-Serper downstream handling is not aligned with `serperResult`.
-Legacy context-recovery patterns remain.
+Serper downstream handling is aligned with `serperResult.organic`.
+
+```text
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+MIS-001 — CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED
+```
+
+ERR-001 remains `PARTIAL / NOT VERIFIED` because it is broader than TD-004 and still requires runtime evidence. Legacy context-recovery patterns remain.
 
 ## Runtime verification required
 
@@ -1321,10 +1317,17 @@ WF3 contains object-style access expectations.
 WF1 sends direct `site_analysis` work to WF5 without an explicit `entity_type`.
 WF5 defaults to `lead`.
 
-### TD-004 — WF2 `serperResult` consumer mismatch
+### TD-004 — WF2 Serper static response-path alignment
+
+```text
+TD-004 — STATICALLY RESOLVED / RUNTIME TO VERIFY
+MIS-001 — CLOSED FOR REPOSITORY-LEVEL STATIC IMPLEMENTATION / RUNTIME NOT VERIFIED
+```
 
 `Serper Search` stores its response in `serperResult`.
-`Extract URLs` reads root-level `organic`.
+`Extract URLs` consumes `serperResult.organic`.
+
+The pre-`beb2e71` mismatch is removed from canonical WF2; runtime evidence remains required.
 
 ### TD-005 — WF6 qualification semantics
 
@@ -1388,6 +1391,8 @@ Approved `ENVIRONMENT.md` establishes:
 
 *   current WF2 response-field configuration;
     
+*   WF2 Serper static producer/consumer alignment: `Serper Search` stores `serperResult`, `Extract URLs` consumes `serperResult.organic`, CONFIRMED BY GITHUB @ `beb2e71`;
+    
 *   current WF2 context-recovery patterns;
     
 *   current WF1 email subject path;
@@ -1409,7 +1414,7 @@ Approved `ENVIRONMENT.md` establishes:
     
 *   workflow and architecture baselines;
     
-*   ADR-005 status `PARTIAL`;
+*   ADR-005 status `IMPLEMENTED` for repository artifacts only;
     
 *   ADR-006 status `PARTIAL`;
     
@@ -1466,7 +1471,7 @@ Approved `ENVIRONMENT.md` establishes:
 
 ### CONFLICT
 
-*   ERR-001 full remediation claim;
+*   ERR-001 full runtime remediation claim;
     
 *   ERR-005 protected-target bypass claim;
     

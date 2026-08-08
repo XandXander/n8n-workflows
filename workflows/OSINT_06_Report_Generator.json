@@ -7,28 +7,15 @@
       "name": "Start",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [
-        -448,
-        112
-      ],
+      "position": [-448, 112],
       "id": "b7a2dbf4-b092-4c7c-95a9-d7cf0d8d80fe"
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {
-              "id": "1",
-              "name": "job_id",
-              "value": "={{ $json.job_id }}",
-              "type": "string"
-            },
-            {
-              "id": "2",
-              "name": "entity_type",
-              "value": "={{ $json.entity_type || 'lead' }}",
-              "type": "string"
-            }
+            {"id": "1", "name": "job_id", "value": "={{ $json.job_id }}", "type": "string"},
+            {"id": "2", "name": "entity_type", "value": "={{ $json.entity_type || 'lead' }}", "type": "string"}
           ]
         },
         "options": {}
@@ -36,98 +23,46 @@
       "name": "Set Vars",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        -224,
-        112
-      ],
+      "position": [-224, 112],
       "id": "840258ea-7a22-4377-81c3-c07bc4fe2782"
     },
     {
       "parameters": {
-        "documentId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "jobs"
-        },
-        "filtersUI": {
-          "values": [
-            {
-              "lookupColumn": "job_id",
-              "lookupValue": "={{ $json.job_id }}"
-            }
-          ]
-        },
+        "documentId": {"__rl": true, "mode": "id", "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "jobs"},
+        "filtersUI": {"values": [{"lookupColumn": "job_id", "lookupValue": "={{ $json.job_id }}"}]},
         "options": {}
       },
       "name": "Read Job",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        0,
-        0
-      ],
+      "position": [0, 0],
       "id": "78843fb9-92b0-4f13-afd9-521e669b5e4b",
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "dUZaJdXfgHXwnmNN",
-          "name": "Google Sheets account"
-        }
-      }
+      "credentials": {"googleSheetsOAuth2Api": {"id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account"}}
     },
     {
       "parameters": {
-        "documentId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "={{ $('Set Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"
-        },
-        "filtersUI": {
-          "values": [
-            {
-              "lookupColumn": "job_id",
-              "lookupValue": "={{ $('Set Vars').item.json.job_id }}"
-            }
-          ]
-        },
+        "documentId": {"__rl": true, "mode": "id", "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "={{ $('Set Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"},
+        "filtersUI": {"values": [{"lookupColumn": "job_id", "lookupValue": "={{ $('Set Vars').item.json.job_id }}"}]},
         "options": {}
       },
       "name": "Read Qualified Entities",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        0,
-        208
-      ],
+      "position": [0, 208],
       "id": "5e952083-10be-4e28-a10c-fbdc01045d4c",
       "alwaysOutputData": true,
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "dUZaJdXfgHXwnmNN",
-          "name": "Google Sheets account"
-        }
-      }
+      "credentials": {"googleSheetsOAuth2Api": {"id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account"}}
     },
     {
       "parameters": {
-        "jsCode": "const job = $('Read Job').first()?.json || {};\nconst allEntities = $('Read Qualified Entities').all().map(i => i.json);\n\n// Отфильтровываем пустые сущности (без source_url, url и title)\nconst realEntities = allEntities.filter(e => e.source_url || e.url || e.title);\n\nconst sorted = realEntities.sort((a, b) => (Number(b.total_score) || 0) - (Number(a.total_score) || 0)).slice(0, 20);\n\nconst stats = {\n  total_found: realEntities.length,\n  qualified: realEntities.length,\n  avg_score: realEntities.length ? Math.round(realEntities.reduce((s, e) => s + (Number(e.total_score) || 0), 0) / realEntities.length) : 0\n};\n\nreturn [{ json: { job, entities: sorted, stats, entity_type: $('Set Vars').item.json.entity_type } }];"
+        "jsCode": "const job = $('Read Job').first()?.json || {};\nconst allEntities = $('Read Qualified Entities').all().map(i => i.json);\n\nconst realEntities = allEntities.filter(e => e.source_url || e.url || e.title);\n\nconst sorted = realEntities.sort((a, b) => (Number(b.total_score) || 0) - (Number(a.total_score) || 0)).slice(0, 20);\n\nconst stats = {\n  total_found: realEntities.length,\n  qualified: realEntities.length,\n  avg_score: realEntities.length ? Math.round(realEntities.reduce((s, e) => s + (Number(e.total_score) || 0), 0) / realEntities.length) : 0\n};\n\nreturn [{ json: { job, entities: sorted, stats, entity_type: $('Set Vars').item.json.entity_type } }];"
       },
       "name": "Prepare Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        240,
-        112
-      ],
+      "position": [240, 112],
       "id": "b173f260-f653-45cb-a45a-1e7e46cf265c"
     },
     {
@@ -137,40 +72,19 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}, {"name": "Connection", "value": "keep-alive"}]},
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ model: 'deepseek-v4-pro', temperature: 0.3, max_tokens: 4000, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Ты — старший аналитик OSINT-платформы. Твоя задача — сгенерировать структурированный Markdown-отчёт на русском языке на основе переданных данных о сущностях (лидах, компаниях, тендерах).\\n\\nПРАВИЛА ОТЧЁТА:\\n1. Начинай с заголовка # OSINT Report и даты.\\n2. Раздел ## Сводка: total_found, qualified, avg_score из stats.\\n3. Раздел ## Топ сущностей: таблица с колонками: №, Название, Услуга (matched_service), Score, Статус, Контакты, Источник (source_url). Максимум 10 строк. Если source_url отсутствует — пиши «не указан».\\n4. Раздел ## Рекомендации к действию: для каждой сущности с total_score >= 50 — recommended_action и first_message_draft.\\n5. Раздел ## Детальный разбор: для топ-5 сущностей — why_relevant.\\n6. Если entities пуст — честно напиши «Сущности не найдены. Возможные причины: поисковые запросы не дали результатов, либо порог фильтрации слишком высок.»\\n\\nВерни СТРОГО JSON: { \"markdown_report\": \"string\" }' }, { role: 'user', content: ($json !== undefined ? JSON.stringify($json).slice(0, 6000) : '{}') } ] }) }}",
-        "options": {
-          "timeout": 120000
-        }
+        "options": {"timeout": 120000}
       },
       "name": "DeepSeek Generate MD",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        480,
-        112
-      ],
+      "position": [480, 112],
       "id": "39f8ec84-8a0a-47be-8f19-4546813083dd",
       "retryOnFail": true,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "R2rXoSacarPbKDqA",
-          "name": "DeepSeek API"
-        }
-      }
+      "credentials": {"httpHeaderAuth": {"id": "R2rXoSacarPbKDqA", "name": "DeepSeek API"}}
     },
     {
       "parameters": {
@@ -179,10 +93,7 @@
       "name": "MD to HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        720,
-        112
-      ],
+      "position": [720, 112],
       "id": "0657bc52-da70-4365-a622-3474d5a1d79e"
     },
     {
@@ -193,68 +104,32 @@
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            {
-              "parameterType": "formBinaryData",
-              "name": "files",
-              "inputDataFieldName": "index.html"
-            },
-            {
-              "name": "paperWidth",
-              "value": "8.27"
-            },
-            {
-              "name": "paperHeight",
-              "value": "11.69"
-            }
+            {"parameterType": "formBinaryData", "name": "files", "inputDataFieldName": "index.html"},
+            {"name": "paperWidth", "value": "8.27"},
+            {"name": "paperHeight", "value": "11.69"}
           ]
         },
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          },
-          "timeout": 120000
-        }
+        "options": {"response": {"response": {"responseFormat": "file"}}, "timeout": 120000}
       },
       "name": "Gotenberg to PDF",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1168,
-        112
-      ],
+      "position": [1168, 112],
       "id": "f9b47b4f-1b7f-447e-a401-bae4f7176ce2"
     },
     {
       "parameters": {
         "name": "={{ $('MD to HTML').item.json.filename }}",
-        "driveId": {
-          "__rl": true,
-          "mode": "list",
-          "value": "My Drive"
-        },
-        "folderId": {
-          "__rl": true,
-          "value": "1xm1Luua_anWS8hLghLJLg_MKZenQ1-SZ",
-          "mode": "id"
-        },
+        "driveId": {"__rl": true, "mode": "list", "value": "My Drive"},
+        "folderId": {"__rl": true, "value": "1xm1Luua_anWS8hLghLJLg_MKZenQ1-SZ", "mode": "id"},
         "options": {}
       },
       "name": "Upload to Drive",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [
-        1424,
-        0
-      ],
+      "position": [1424, 0],
       "id": "8756e01d-79f6-47cc-aad5-8938a1d1e45d",
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "vfX5XNxSmi7T7Zks",
-          "name": "Google Drive account"
-        }
-      }
+      "credentials": {"googleDriveOAuth2Api": {"id": "vfX5XNxSmi7T7Zks", "name": "Google Drive account"}}
     },
     {
       "parameters": {
@@ -269,18 +144,10 @@
       "name": "Telegram Send PDF",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [
-        1648,
-        224
-      ],
+      "position": [1648, 224],
       "id": "c0329d5f-fd7b-497f-82e1-c58b676884eb",
       "webhookId": "894de25b-17f6-4312-895e-ebcc7aef54ce",
-      "credentials": {
-        "telegramApi": {
-          "id": "Xw7qHzoLSGuJnpZr",
-          "name": "Telegram account"
-        }
-      }
+      "credentials": {"telegramApi": {"id": "Xw7qHzoLSGuJnpZr", "name": "Telegram account"}}
     },
     {
       "parameters": {
@@ -293,32 +160,16 @@
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [
-        1888,
-        0
-      ],
+      "position": [1888, 0],
       "id": "a67f41a5-3345-4956-9d4a-effe31512ac1",
       "webhookId": "447acd43-9eab-4310-9199-3ddb6eec07d5",
-      "credentials": {
-        "smtp": {
-          "id": "H2ru5T06SuHhoIra",
-          "name": "Yandex SMTP"
-        }
-      }
+      "credentials": {"smtp": {"id": "H2ru5T06SuHhoIra", "name": "Yandex SMTP"}}
     },
     {
       "parameters": {
         "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "reports"
-        },
+        "documentId": {"__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "reports"},
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -331,60 +182,12 @@
           },
           "matchingColumns": [],
           "schema": [
-            {
-              "id": "report_id",
-              "displayName": "report_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "job_id",
-              "displayName": "job_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "created_at",
-              "displayName": "created_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "pdf_drive_url",
-              "displayName": "pdf_drive_url",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "md_content_short",
-              "displayName": "md_content_short",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "email_sent",
-              "displayName": "email_sent",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            }
+            {"id": "report_id", "displayName": "report_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "created_at", "displayName": "created_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "pdf_drive_url", "displayName": "pdf_drive_url", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "md_content_short", "displayName": "md_content_short", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "email_sent", "displayName": "email_sent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
@@ -394,31 +197,15 @@
       "name": "Log Report",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        1648,
-        0
-      ],
+      "position": [1648, 0],
       "id": "9fe15080-697c-4f5d-8d5f-757555b36ccf",
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "dUZaJdXfgHXwnmNN",
-          "name": "Google Sheets account"
-        }
-      }
+      "credentials": {"googleSheetsOAuth2Api": {"id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account"}}
     },
     {
       "parameters": {
         "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "jobs"
-        },
+        "documentId": {"__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "jobs"},
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -428,147 +215,22 @@
             "report_url": "={{ $('Upload to Drive').first().json.webViewLink }}",
             "row_number": 0
           },
-          "matchingColumns": [
-            "job_id"
-          ],
+          "matchingColumns": ["job_id"],
           "schema": [
-            {
-              "id": "job_id",
-              "displayName": "job_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "created_at",
-              "displayName": "created_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "source",
-              "displayName": "source",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "user_id",
-              "displayName": "user_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "raw_input",
-              "displayName": "raw_input",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "intent",
-              "displayName": "intent",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "entities_json",
-              "displayName": "entities_json",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "status",
-              "displayName": "status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "started_at",
-              "displayName": "started_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "finished_at",
-              "displayName": "finished_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "leads_found",
-              "displayName": "leads_found",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "report_url",
-              "displayName": "report_url",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "error",
-              "displayName": "error",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "row_number",
-              "displayName": "row_number",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "number",
-              "canBeUsedToMatch": true,
-              "readOnly": true,
-              "removed": false
-            }
+            {"id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "created_at", "displayName": "created_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "source", "displayName": "source", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "user_id", "displayName": "user_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "raw_input", "displayName": "raw_input", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "intent", "displayName": "intent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "entities_json", "displayName": "entities_json", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "started_at", "displayName": "started_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "finished_at", "displayName": "finished_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "leads_found", "displayName": "leads_found", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "report_url", "displayName": "report_url", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "error", "displayName": "error", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "row_number", "displayName": "row_number", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "readOnly": true, "removed": false}
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
@@ -578,17 +240,9 @@
       "name": "Update Job Done",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        2128,
-        0
-      ],
+      "position": [2128, 0],
       "id": "96245202-a0a1-49ef-97f4-f4cb8ab15b70",
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "dUZaJdXfgHXwnmNN",
-          "name": "Google Sheets account"
-        }
-      }
+      "credentials": {"googleSheetsOAuth2Api": {"id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account"}}
     },
     {
       "parameters": {
@@ -597,154 +251,25 @@
       "name": "Create HTML Binary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        928,
-        112
-      ],
+      "position": [928, 112],
       "id": "d65a36da-d0cd-42ca-b891-ca31a606bfe3"
     }
   ],
   "connections": {
-    "Start": {
-      "main": [
-        [
-          {
-            "node": "Set Vars",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set Vars": {
-      "main": [
-        [
-          {
-            "node": "Read Job",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Read Job": {
-      "main": [
-        [
-          {
-            "node": "Read Qualified Entities",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Read Qualified Entities": {
-      "main": [
-        [
-          {
-            "node": "Prepare Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Context": {
-      "main": [
-        [
-          {
-            "node": "DeepSeek Generate MD",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "DeepSeek Generate MD": {
-      "main": [
-        [
-          {
-            "node": "MD to HTML",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "MD to HTML": {
-      "main": [
-        [
-          {
-            "node": "Create HTML Binary",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gotenberg to PDF": {
-      "main": [
-        [
-          {
-            "node": "Upload to Drive",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Telegram Send PDF",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Upload to Drive": {
-      "main": [
-        [
-          {
-            "node": "Log Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Email": {
-      "main": [
-        [
-          {
-            "node": "Update Job Done",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Report": {
-      "main": [
-        [
-          {
-            "node": "Send Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create HTML Binary": {
-      "main": [
-        [
-          {
-            "node": "Gotenberg to PDF",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Start": {"main": [[{"node": "Set Vars", "type": "main", "index": 0}]]},
+    "Set Vars": {"main": [[{"node": "Read Job", "type": "main", "index": 0}]]},
+    "Read Job": {"main": [[{"node": "Read Qualified Entities", "type": "main", "index": 0}]]},
+    "Read Qualified Entities": {"main": [[{"node": "Prepare Context", "type": "main", "index": 0}]]},
+    "Prepare Context": {"main": [[{"node": "DeepSeek Generate MD", "type": "main", "index": 0}]]},
+    "DeepSeek Generate MD": {"main": [[{"node": "MD to HTML", "type": "main", "index": 0}]]},
+    "MD to HTML": {"main": [[{"node": "Create HTML Binary", "type": "main", "index": 0}]]},
+    "Gotenberg to PDF": {"main": [[{"node": "Upload to Drive", "type": "main", "index": 0}, {"node": "Telegram Send PDF", "type": "main", "index": 0}]]},
+    "Upload to Drive": {"main": [[{"node": "Log Report", "type": "main", "index": 0}]]},
+    "Send Email": {"main": [[{"node": "Update Job Done", "type": "main", "index": 0}]]},
+    "Log Report": {"main": [[{"node": "Send Email", "type": "main", "index": 0}]]},
+    "Create HTML Binary": {"main": [[{"node": "Gotenberg to PDF", "type": "main", "index": 0}]]}
   },
+  "settings": {},
   "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,

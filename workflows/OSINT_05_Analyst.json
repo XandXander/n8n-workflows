@@ -1,6 +1,7 @@
 {
   "id": "viR4AZBaC4CFA4qx",
   "name": "OSINT_05_Analyst",
+  "settings": {},
   "nodes": [
     {
       "parameters": {},
@@ -675,14 +676,14 @@
       "main": [
         [
           {
-            "node": "DeepSeek All Scores",
+            "node": "Trigger Report",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Trigger Report",
+            "node": "DeepSeek All Scores",
             "type": "main",
             "index": 0
           }

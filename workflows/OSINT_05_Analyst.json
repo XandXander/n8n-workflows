@@ -160,12 +160,22 @@
     },
     {
       "parameters": {
+        "jsCode": "// Prepare Report Trigger — collapses DONE output into exactly one job trigger\nconst jobId = $('Set Job Vars').first().json.job_id || '';\nconst entityType = $('Set Job Vars').first().json.entity_type || 'lead';\nif (!jobId) {\n  throw new Error('Prepare Report Trigger: job_id missing');\n}\nreturn [{\n  json: {\n    job_id: jobId,\n    entity_type: entityType\n  }\n}];"
+      },
+      "name": "Prepare Report Trigger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [824, 224],
+      "id": "e0000009-0009-4000-8000-000000000009"
+    },
+    {
+      "parameters": {
         "workflowId": {"__rl": true, "value": "qXWixFd94G7Tfgaa", "mode": "id", "cachedResultUrl": "/workflow/qXWixFd94G7Tfgaa"},
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "job_id": "={{ $('Set Job Vars').first().json.job_id }}",
-            "entity_type": "={{ $('Set Job Vars').first().json.entity_type }}"
+            "job_id": "={{ $json.job_id }}",
+            "entity_type": "={{ $json.entity_type }}"
           },
           "matchingColumns": [],
           "schema": [],
@@ -185,11 +195,12 @@
     "Start": {"main": [[{"node": "Set Job Vars", "type": "main", "index": 0}]]},
     "Set Job Vars": {"main": [[{"node": "Read Entities", "type": "main", "index": 0}]]},
     "Read Entities": {"main": [[{"node": "Loop Entities", "type": "main", "index": 0}]]},
-    "Loop Entities": {"main": [[{"node": "Trigger Report", "type": "main", "index": 0}], [{"node": "DeepSeek All Scores", "type": "main", "index": 0}]]},
+    "Loop Entities": {"main": [[{"node": "Prepare Report Trigger", "type": "main", "index": 0}], [{"node": "DeepSeek All Scores", "type": "main", "index": 0}]]},
     "DeepSeek All Scores": {"main": [[{"node": "Rate Limit Wait", "type": "main", "index": 0}]]},
     "Rate Limit Wait": {"main": [[{"node": "Parse Scores", "type": "main", "index": 0}]]},
     "Parse Scores": {"main": [[{"node": "Update Row", "type": "main", "index": 0}]]},
-    "Update Row": {"main": [[{"node": "Loop Entities", "type": "main", "index": 0}]]}
+    "Update Row": {"main": [[{"node": "Loop Entities", "type": "main", "index": 0}]]},
+    "Prepare Report Trigger": {"main": [[{"node": "Trigger Report", "type": "main", "index": 0}]]}
   },
   "pinData": {},
   "meta": {

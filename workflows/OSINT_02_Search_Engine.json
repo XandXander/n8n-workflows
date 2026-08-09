@@ -43,6 +43,120 @@
     },
     {
       "parameters": {
+        "jsCode": "// TEMP Finalize WF2 Funnel v1 — Diagnostic scope calculator\n// Runs when Loop Queries completes (output 0).\n// Determines if job is in scope and constructs diagnostic message.\n// On any unexpected error: leave flag false, return items unchanged.\n\ntry {\n  const normalize = (value) => String(value ?? '')\n    .trim()\n    .toLowerCase()\n    .replace(/ё/g, 'е')\n    .replace(/[‐‑‒–—−]/g, '-');\n\n  const items = $input.all();\n  const firstItem = (items && items.length > 0) ? (items[0].json || {}) : {};\n\n  let intent = '';\n  let service = '';\n  let region = '';\n\n  // Extract from Trigger\n  try {\n    const triggerData = $('Trigger').first().json;\n    intent = triggerData.intent || '';\n    let entities = triggerData.entities;\n    let attempts = 0;\n    while (typeof entities === 'string' && attempts < 3) {\n      try { entities = JSON.parse(entities); } catch(e) { entities = {}; break; }\n      attempts++;\n    }\n    entities = entities || {};\n    service = entities.service || '';\n    region = entities.region || '';\n  } catch(e) {}\n\n  // Fallback to Build Query Matrix items\n  if (!service || !region) {\n    service = firstItem.service || service;\n    region = firstItem.region || region;\n  }\n\n  intent = normalize(intent);\n  service = normalize(service);\n  region = normalize(region);\n\n  const inScope =\n    intent === 'search_private' &&\n    service.includes('вентиляц') &&\n    (\n      /(^|[^а-яa-z0-9])спб([^а-яa-z0-9]|$)/u.test(region) ||\n      region.includes('петербург')\n    );\n\n  let emit = false;\n  let diagMessage = '';\n\n  if (inScope) {\n    try {\n      let filterCount = 0, urlCount = 0, contactCount = 0, appendCount = 0;\n      try { const fi = $items('TEMP Diag Filter Pass'); filterCount = fi ? fi.length : 0; } catch(e) {}\n      try { const ui = $items('TEMP Diag URL Loop'); urlCount = ui ? ui.length : 0; } catch(e) {}\n      try { const ci = $items('TEMP Diag Contacts'); contactCount = ci ? ci.length : 0; } catch(e) {}\n      try { const ai = $items('TEMP Diag Append Success'); appendCount = ai ? ai.length : 0; } catch(e) {}\n\n      diagMessage = 'TEMP WF2 FUNNEL DIAGNOSTIC\\n' +\n        'Intent: ' + intent + '\\n' +\n        'Service: ' + service + '\\n' +\n        'Region: ' + region + '\\n' +\n        'In Scope: true\\n' +\n        'Filter Pass Items: ' + filterCount + '\\n' +\n        'URL Loop Items: ' + urlCount + '\\n' +\n        'Contacts Items: ' + contactCount + '\\n' +\n        'Append Success Items: ' + appendCount + '\\n' +\n        'Status: constructed';\n      emit = true;\n    } catch(e) {\n      diagMessage = 'TEMP WF2 FUNNEL DIAGNOSTIC\\n' +\n        'Intent: ' + intent + '\\n' +\n        'Service: ' + service + '\\n' +\n        'Region: ' + region + '\\n' +\n        'In Scope: true\\n' +\n        'Status: INSTRUMENTATION STATE MISSING\\n' +\n        'Error: ' + (e.message || 'unknown');\n      emit = true;\n    }\n  }\n\n  return items.map(item => ({\n    json: {\n      ...item.json,\n      _temp_wf2_diag_v1_emit: emit,\n      _temp_wf2_diag_v1_message: diagMessage\n    }\n  }));\n} catch(e) {\n  // Unexpected error: leave flag false/absent, return original items unchanged\n  return $input.all();\n}"
+      },
+      "name": "TEMP Finalize WF2 Funnel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        184,
+        960
+      ],
+      "id": "e0000005-0005-4000-8000-000000000005"
+    },
+    {
+      "parameters": {
+        "amount": 120
+      },
+      "name": "Wait Before Analyst",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        960
+      ],
+      "webhookId": "c5d2e8a1-b456-4e12-9def-abc123456789",
+      "id": "6a7b8c9d-0001-4e5f-a3b4-c5d6e7f8a901"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "viR4AZBaC4CFA4qx",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $('Trigger').first().json.job_id }}",
+            "entity_type": "lead"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "name": "Run Analyst",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        512,
+        960
+      ],
+      "id": "2e5553be-98ab-4e4c-ba06-2992b56a1f17"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "emit_check",
+              "leftValue": "={{ $json._temp_wf2_diag_v1_emit }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "TEMP Gate WF2 Funnel Scope",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        800
+      ],
+      "id": "e0000006-0006-4000-8000-000000000006"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "O3Ke6qflNx8CL1x7",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "operation": "notify_admin",
+            "message": "={{ $json._temp_wf2_diag_v1_message }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "name": "TEMP Emit WF2 Funnel",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        624,
+        800
+      ],
+      "id": "e0000007-0007-4000-8000-000000000007",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://google.serper.dev/search",
         "authentication": "genericCredentialType",
@@ -150,6 +264,19 @@
     },
     {
       "parameters": {
+        "jsCode": "// TEMP Diag Filter Pass — records items passing through Filter Empty\n// Passthrough: all items pass unchanged to Loop URLs.\nreturn $input.all();"
+      },
+      "name": "TEMP Diag Filter Pass",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        1072
+      ],
+      "id": "e0000001-0001-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
         "options": {}
       },
       "name": "Loop URLs",
@@ -160,6 +287,19 @@
         1072
       ],
       "id": "a3b74931-9eb0-4443-829c-ddf7518aef4d"
+    },
+    {
+      "parameters": {
+        "jsCode": "// TEMP Diag URL Loop — records URLs sent to Firecrawl\n// Passthrough: all items pass unchanged to Firecrawl Scrape.\nreturn $input.all();"
+      },
+      "name": "TEMP Diag URL Loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1064,
+        1168
+      ],
+      "id": "e0000002-0002-4000-8000-000000000002"
     },
     {
       "parameters": {
@@ -207,6 +347,19 @@
         1168
       ],
       "id": "f4cbec29-a442-4695-be4d-fea7f00bc07a"
+    },
+    {
+      "parameters": {
+        "jsCode": "// TEMP Diag Contacts — records contacts extracted\n// Passthrough: all items pass unchanged to Has Contacts?.\nreturn $input.all();"
+      },
+      "name": "TEMP Diag Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        1168
+      ],
+      "id": "e0000003-0003-4000-8000-000000000003"
     },
     {
       "parameters": {
@@ -617,6 +770,19 @@
       }
     },
     {
+      "parameters": {
+        "jsCode": "// TEMP Diag Append Success — records successful Google Sheets appends\n// Passthrough: all items pass unchanged to Back to URL Loop.\nreturn $input.all();"
+      },
+      "name": "TEMP Diag Append Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2608,
+        1072
+      ],
+      "id": "e0000004-0004-4000-8000-000000000004"
+    },
+    {
       "parameters": {},
       "name": "Back to URL Loop",
       "type": "n8n-nodes-base.noOp",
@@ -626,47 +792,6 @@
         1072
       ],
       "id": "8d6606ba-219b-4fcf-bc50-7841e140a712"
-    },
-    {
-      "parameters": {
-        "amount": 120
-      },
-      "name": "Wait Before Analyst",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        288,
-        960
-      ],
-      "webhookId": "c5d2e8a1-b456-4e12-9def-abc123456789",
-      "id": "6a7b8c9d-0001-4e5f-a3b4-c5d6e7f8a901"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "viR4AZBaC4CFA4qx",
-          "mode": "id"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "job_id": "={{ $('Trigger').first().json.job_id }}",
-            "entity_type": "lead"
-          }
-        },
-        "options": {
-          "waitForSubWorkflow": false
-        }
-      },
-      "name": "Run Analyst",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        512,
-        960
-      ],
-      "id": "2e5553be-98ab-4e4c-ba06-2992b56a1f17"
     },
     {
       "parameters": {
@@ -742,7 +867,7 @@
       "main": [
         [
           {
-            "node": "Wait Before Analyst",
+            "node": "TEMP Finalize WF2 Funnel",
             "type": "main",
             "index": 0
           }
@@ -756,6 +881,17 @@
         ]
       ]
     },
+    "TEMP Finalize WF2 Funnel": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Wait Before Analyst": {
       "main": [
         [
@@ -763,8 +899,26 @@
             "node": "Run Analyst",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "TEMP Gate WF2 Funnel Scope",
+            "type": "main",
+            "index": 0
           }
         ]
+      ]
+    },
+    "TEMP Gate WF2 Funnel Scope": {
+      "main": [
+        [
+          {
+            "node": "TEMP Emit WF2 Funnel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        []
       ]
     },
     "Serper Search": {
@@ -804,7 +958,7 @@
       "main": [
         [
           {
-            "node": "Loop URLs",
+            "node": "TEMP Diag Filter Pass",
             "type": "main",
             "index": 0
           }
@@ -812,6 +966,17 @@
         [
           {
             "node": "Loop Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEMP Diag Filter Pass": {
+      "main": [
+        [
+          {
+            "node": "Loop URLs",
             "type": "main",
             "index": 0
           }
@@ -827,6 +992,17 @@
             "index": 0
           }
         ],
+        [
+          {
+            "node": "TEMP Diag URL Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEMP Diag URL Loop": {
+      "main": [
         [
           {
             "node": "Firecrawl Scrape",
@@ -848,6 +1024,17 @@
       ]
     },
     "Extract Contacts": {
+      "main": [
+        [
+          {
+            "node": "TEMP Diag Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEMP Diag Contacts": {
       "main": [
         [
           {
@@ -917,6 +1104,17 @@
       ]
     },
     "Append Lead": {
+      "main": [
+        [
+          {
+            "node": "TEMP Diag Append Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEMP Diag Append Success": {
       "main": [
         [
           {

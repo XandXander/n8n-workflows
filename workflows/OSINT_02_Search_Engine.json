@@ -9,72 +9,49 @@
       "name": "Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [
-        -368,
-        1072
-      ],
+      "position": [-368, 1072],
       "id": "370275e2-af6f-401e-abbc-7b80a1086c90"
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first()?.json || {};\n\nconst job_id = input.job_id || ('job_recovered_' + Date.now().toString(36));\nconst intent = input.intent || 'search_private';\n\nlet entities = input.entities;\nlet attempts = 0;\nwhile (typeof entities === 'string' && attempts < 3) {\n  try { entities = JSON.parse(entities); } catch(e) { entities = {}; break; }\n  attempts++;\n}\nentities = entities || {};\n\nconst service = entities.service || 'услуга';\nconst region = entities.region || 'Россия';\nconst budget_min = entities.budget_min || 0;\nconst budget_max = entities.budget_max || 999999999;\n\nif (service === 'услуга' && !input.intent) {\n  throw new Error(\"Критическая ошибка: Данные не дошли до узла.\");\n}\n\nconst queries = [];\nconst isClientSearch = intent === 'search_private';\n\nif (isClientSearch) {\n  // Source-targeted demand queries (high recall — up to 10 results each)\n  const sourceTargets = [\n    { q: `${service} ${region} avito.ru`, platform: 'avito' },\n    { q: `${service} ${region} youla.ru`, platform: 'youla' },\n    { q: `${service} ищу ${region} vk.com`, platform: 'vk' },\n    { q: `${service} ${region} t.me заказ`, platform: 'telegram' },\n    { q: `${service} ${region} poisk-pro.ru`, platform: 'poisk-pro' },\n    { q: `${service} ${region} pro.petrovich.ru`, platform: 'petrovich' }\n  ];\n  for (const t of sourceTargets) {\n    queries.push({ json: { query: t.q, source_platform: t.platform, region, job_id, service, budget_min, budget_max } });\n  }\n  // Generic demand queries (fallback)\n  const clientPlatforms = [\n    `\"нужен ${service}\" ${region}`,\n    `\"ищу ${service}\" ${region}`,\n    `\"требуется ${service}\" ${region}`,\n    `\"нужен мастер по ${service}\" ${region}`,\n    `\"посоветуйте ${service}\" ${region}`,\n    `${service} ${region} Авито`,\n    `${service} ${region} Юла`,\n    `${service} ${region} частное лицо ищу`,\n    `${service} ${region} заказать`,\n    `${service} ${region} частный заказ`\n  ];\n  for (const query of clientPlatforms) {\n    queries.push({ json: { query, source_platform: 'general', region, job_id, service, budget_min, budget_max } });\n  }\n} else {\n  const b2bPlatforms = [\n    `${service} ${region} Авито`,\n    `${service} ${region} Юла`,\n    `${service} ${region} Profi`,\n    `${service} ${region} YouDo`,\n    `${service} ищу ${region} ВКонтакте`,\n    `${service} ${region} Telegram заказ`,\n    `${service} ${region} частное лицо`,\n    `${service} ${region} ищу мастера`,\n    `${service} ${region} под ключ`,\n    `${service} ${region} срочно`,\n    `${service} ${region} услуги`,\n    `${service} ${region} цена`,\n    `${service} ${region} частный мастер`,\n    `${service} ${region} заказать`\n  ];\n  for (const query of b2bPlatforms) {\n    queries.push({ json: { query, source_platform: 'general', region, job_id, service, budget_min, budget_max } });\n  }\n}\n\nreturn queries;"
+        "jsCode": "const input = $input.first()?.json || {};\n\nconst job_id = input.job_id || ('job_recovered_' + Date.now().toString(36));\nconst intent = input.intent || 'search_private';\n\nlet entities = input.entities;\nlet attempts = 0;\nwhile (typeof entities === 'string' && attempts < 3) {\n  try { entities = JSON.parse(entities); } catch(e) { entities = {}; break; }\n  attempts++;\n}\nentities = entities || {};\n\nconst service = entities.service || 'услуга';\nconst region = entities.region || 'Россия';\nconst budget_min = entities.budget_min || 0;\nconst budget_max = entities.budget_max || 999999999;\n\nif (service === 'услуга' && !input.intent) {\n  throw new Error(\"Критическая ошибка: Данные не дошли до узла.\");\n}\n\nconst queries = [];\nconst isClientSearch = intent === 'search_private';\n\nif (isClientSearch) {\n  const sourceTargets = [\n    { q: `${service} ${region} avito.ru`, platform: 'avito' },\n    { q: `${service} ${region} youla.ru`, platform: 'youla' },\n    { q: `${service} ищу ${region} vk.com`, platform: 'vk' },\n    { q: `${service} ${region} t.me заказ`, platform: 'telegram' },\n    { q: `${service} ${region} poisk-pro.ru`, platform: 'poisk-pro' },\n    { q: `${service} ${region} pro.petrovich.ru`, platform: 'petrovich' }\n  ];\n  for (const t of sourceTargets) {\n    queries.push({ json: { query: t.q, source_platform: t.platform, region, job_id, service, budget_min, budget_max } });\n  }\n  const clientPlatforms = [\n    `\"нужен ${service}\" ${region}`,\n    `\"ищу ${service}\" ${region}`,\n    `\"требуется ${service}\" ${region}`,\n    `\"нужен мастер по ${service}\" ${region}`,\n    `\"посоветуйте ${service}\" ${region}`,\n    `${service} ${region} Авито`,\n    `${service} ${region} Юла`,\n    `${service} ${region} частное лицо ищу`,\n    `${service} ${region} заказать`,\n    `${service} ${region} частный заказ`\n  ];\n  for (const query of clientPlatforms) {\n    queries.push({ json: { query, source_platform: 'general', region, job_id, service, budget_min, budget_max } });\n  }\n} else {\n  const b2bPlatforms = [\n    `${service} ${region} Авито`,\n    `${service} ${region} Юла`,\n    `${service} ${region} Profi`,\n    `${service} ${region} YouDo`,\n    `${service} ищу ${region} ВКонтакте`,\n    `${service} ${region} Telegram заказ`,\n    `${service} ${region} частное лицо`,\n    `${service} ${region} ищу мастера`,\n    `${service} ${region} под ключ`,\n    `${service} ${region} срочно`,\n    `${service} ${region} услуги`,\n    `${service} ${region} цена`,\n    `${service} ${region} частный мастер`,\n    `${service} ${region} заказать`\n  ];\n  for (const query of b2bPlatforms) {\n    queries.push({ json: { query, source_platform: 'general', region, job_id, service, budget_min, budget_max } });\n  }\n}\n\n// DIAG V2: Initialize accumulator for in-scope jobs\n(function() {\n  try {\n    const normalize = (value) => String(value ?? '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[‐‑‒–—−]/g, '-');\n    const diagInScope = intent === 'search_private' && normalize(service).includes('вентиляц') && (/(^|[^а-яa-z0-9])спб([^а-яa-z0-9]|$)/u.test(normalize(region)) || normalize(region).includes('петербург'));\n    if (!diagInScope) return;\n    const diagKey = 'wf2_diag_v2_' + job_id;\n    const sd = $getWorkflowStaticData('global');\n    const now = Date.now();\n    for (const k of Object.keys(sd)) {\n      if (k.startsWith('wf2_diag_v2_') && sd[k]?.ts && (now - sd[k].ts > 86400000)) {\n        delete sd[k];\n      }\n    }\n    sd[diagKey] = { ts: now, queryCount: queries.length, queriesByPlatform: {} };\n    for (const q of queries) {\n      const p = q.json.source_platform || 'unknown';\n      sd[diagKey].queriesByPlatform[p] = (sd[diagKey].queriesByPlatform[p] || 0) + 1;\n    }\n  } catch(e) { /* fail-open */ }\n})();\n\nreturn queries;"
       },
       "name": "Build Query Matrix",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -160,
-        1072
-      ],
+      "position": [-160, 1072],
       "id": "4abb6f1a-e95a-4343-b952-7f504f4a6a72"
     },
     {
-      "parameters": {
-        "options": {}
-      },
+      "parameters": { "options": {} },
       "name": "Loop Queries",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [
-        80,
-        1072
-      ],
+      "position": [80, 1072],
       "id": "a296d29b-1e7a-4519-a66e-6f4f9c2b9bd5"
     },
     {
       "parameters": {
-        "jsCode": "// TEMP Finalize WF2 Funnel v1 — Diagnostic scope calculator\n// Runs when Loop Queries completes (output 0).\n// Determines if job is in scope and constructs diagnostic message.\n// On any unexpected error: leave flag false, return items unchanged.\n\ntry {\n  const normalize = (value) => String(value ?? '')\n    .trim()\n    .toLowerCase()\n    .replace(/ё/g, 'е')\n    .replace(/[‐‑‒–—−]/g, '-');\n\n  const items = $input.all();\n  const firstItem = (items && items.length > 0) ? (items[0].json || {}) : {};\n\n  let intent = '';\n  let service = '';\n  let region = '';\n\n  // Extract from Trigger\n  try {\n    const triggerData = $('Trigger').first().json;\n    intent = triggerData.intent || '';\n    let entities = triggerData.entities;\n    let attempts = 0;\n    while (typeof entities === 'string' && attempts < 3) {\n      try { entities = JSON.parse(entities); } catch(e) { entities = {}; break; }\n      attempts++;\n    }\n    entities = entities || {};\n    service = entities.service || '';\n    region = entities.region || '';\n  } catch(e) {}\n\n  // Fallback to Build Query Matrix items\n  if (!service || !region) {\n    service = firstItem.service || service;\n    region = firstItem.region || region;\n  }\n\n  intent = normalize(intent);\n  service = normalize(service);\n  region = normalize(region);\n\n  const inScope =\n    intent === 'search_private' &&\n    service.includes('вентиляц') &&\n    (\n      /(^|[^а-яa-z0-9])спб([^а-яa-z0-9]|$)/u.test(region) ||\n      region.includes('петербург')\n    );\n\n  let emit = false;\n  let diagMessage = '';\n\n  if (inScope) {\n    try {\n      let filterCount = 0, urlCount = 0, contactCount = 0, appendCount = 0;\n      try { const fi = $items('TEMP Diag Filter Pass'); filterCount = fi ? fi.length : 0; } catch(e) {}\n      try { const ui = $items('TEMP Diag URL Loop'); urlCount = ui ? ui.length : 0; } catch(e) {}\n      try { const ci = $items('TEMP Diag Contacts'); contactCount = ci ? ci.length : 0; } catch(e) {}\n      try { const ai = $items('TEMP Diag Append Success'); appendCount = ai ? ai.length : 0; } catch(e) {}\n\n      diagMessage = 'TEMP WF2 FUNNEL DIAGNOSTIC\\n' +\n        'Intent: ' + intent + '\\n' +\n        'Service: ' + service + '\\n' +\n        'Region: ' + region + '\\n' +\n        'In Scope: true\\n' +\n        'Filter Pass Items: ' + filterCount + '\\n' +\n        'URL Loop Items: ' + urlCount + '\\n' +\n        'Contacts Items: ' + contactCount + '\\n' +\n        'Append Success Items: ' + appendCount + '\\n' +\n        'Status: constructed';\n      emit = true;\n    } catch(e) {\n      diagMessage = 'TEMP WF2 FUNNEL DIAGNOSTIC\\n' +\n        'Intent: ' + intent + '\\n' +\n        'Service: ' + service + '\\n' +\n        'Region: ' + region + '\\n' +\n        'In Scope: true\\n' +\n        'Status: INSTRUMENTATION STATE MISSING\\n' +\n        'Error: ' + (e.message || 'unknown');\n      emit = true;\n    }\n  }\n\n  return items.map(item => ({\n    json: {\n      ...item.json,\n      _temp_wf2_diag_v1_emit: emit,\n      _temp_wf2_diag_v1_message: diagMessage\n    }\n  }));\n} catch(e) {\n  // Unexpected error: leave flag false/absent, return original items unchanged\n  return $input.all();\n}"
+        "jsCode": "// TEMP Finalize WF2 Funnel V2 — reads transient accumulator, builds compact diagnostic\n// Runs when Loop Queries completes (output 0 = DONE).\n// Fail-open: any error returns original items unchanged with emit=false.\n\ntry {\n  const normalize = (value) => String(value ?? '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[‐‑‒–—−]/g, '-');\n  const items = $input.all();\n  const firstItem = (items && items.length > 0) ? (items[0].json || {}) : {};\n\n  let intent = '', service = '', region = '', jobId = '';\n  try {\n    const triggerData = $('Trigger').first().json;\n    intent = triggerData.intent || '';\n    jobId = triggerData.job_id || '';\n    let entities = triggerData.entities;\n    let attempts = 0;\n    while (typeof entities === 'string' && attempts < 3) {\n      try { entities = JSON.parse(entities); } catch(e) { entities = {}; break; }\n      attempts++;\n    }\n    entities = entities || {};\n    service = entities.service || '';\n    region = entities.region || '';\n  } catch(e) {}\n\n  if (!service || !region) {\n    service = firstItem.service || service;\n    region = firstItem.region || region;\n  }\n  if (!jobId) jobId = firstItem.job_id || '';\n\n  intent = normalize(intent);\n  service = normalize(service);\n  region = normalize(region);\n\n  const inScope = intent === 'search_private' && service.includes('вентиляц') && (/(^|[^а-яa-z0-9])спб([^а-яa-z0-9]|$)/u.test(region) || region.includes('петербург'));\n\n  let emit = false;\n  let diagMessage = '';\n\n  if (inScope) {\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    const acc = sd[diagKey];\n\n    if (acc) {\n      const lines = ['TEMP WF2 FUNNEL DIAGNOSTIC V2'];\n      lines.push('Job: ' + jobId);\n      lines.push('Intent: ' + intent + ' | Svc: ' + service + ' | Region: ' + region);\n      lines.push('Queries: ' + (acc.queryCount || 0));\n      if (acc.queriesByPlatform) {\n        const plat = Object.entries(acc.queriesByPlatform).map(function(e) { return e[0] + ':' + e[1]; }).join(' ');\n        lines.push('ByPlatform: ' + plat);\n      }\n      lines.push('SerpOrganic: ' + (acc.serperOrganicTotal || 0) + ' | URL: ' + (acc.extractedUrlTotal || 0));\n      lines.push('ClassIn: ' + (acc.classificationInput || 0) + ' D:' + (acc.demandCount || 0) + ' S:' + (acc.supplyCount || 0) + ' A:' + (acc.ambiguousCount || 0));\n      lines.push('Keep: ' + (acc.keepCount || 0) + ' | Reject: ' + (acc.rejectCount || 0));\n      if (acc.reasonCodes) lines.push('Codes: ' + JSON.stringify(acc.reasonCodes));\n      lines.push('FltPass: ' + (acc.filterEmptyPassed || 0) + ' | LoopUrl: ' + (acc.loopUrlsEntered || 0));\n      lines.push('FCAtt: ' + (acc.firecrawlAttempted || 0) + ' | FCUsable: ' + (acc.firecrawlUsable || 0));\n      lines.push('CntOut: ' + (acc.extractContactsOutput || 0) + ' | WithCnt: ' + (acc.contactPresenceCount || 0));\n      lines.push('AppendOK: ' + (acc.appendLeadSuccessOutput || 0));\n\n      diagMessage = lines.join('\\n');\n      if (diagMessage.length > 3500) diagMessage = diagMessage.slice(0, 3500);\n\n      delete sd[diagKey];\n      emit = true;\n    } else {\n      diagMessage = 'TEMP WF2 FUNNEL DIAGNOSTIC V2\\nJob: ' + jobId + '\\nStatus: INSTRUMENTATION STATE MISSING';\n      emit = true;\n    }\n  }\n\n  return items.map(function(item) {\n    return { json: Object.assign({}, item.json, { _temp_wf2_diag_v1_emit: emit, _temp_wf2_diag_v1_message: diagMessage }) };\n  });\n} catch(e) {\n  return $input.all();\n}"
       },
       "name": "TEMP Finalize WF2 Funnel",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        184,
-        960
-      ],
+      "position": [184, 960],
       "id": "e0000005-0005-4000-8000-000000000005"
     },
     {
-      "parameters": {
-        "amount": 120
-      },
+      "parameters": { "amount": 120 },
       "name": "Wait Before Analyst",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [
-        288,
-        960
-      ],
+      "position": [288, 960],
       "webhookId": "c5d2e8a1-b456-4e12-9def-abc123456789",
       "id": "6a7b8c9d-0001-4e5f-a3b4-c5d6e7f8a901"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "viR4AZBaC4CFA4qx",
-          "mode": "id"
-        },
+        "workflowId": { "__rl": true, "value": "viR4AZBaC4CFA4qx", "mode": "id" },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
@@ -82,37 +59,24 @@
             "entity_type": "lead"
           }
         },
-        "options": {
-          "waitForSubWorkflow": false
-        }
+        "options": { "waitForSubWorkflow": false }
       },
       "name": "Run Analyst",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [
-        512,
-        960
-      ],
+      "position": [512, 960],
       "id": "2e5553be-98ab-4e4c-ba06-2992b56a1f17"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
           "conditions": [
             {
               "id": "emit_check",
               "leftValue": "={{ $json._temp_wf2_diag_v1_emit }}",
               "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -121,37 +85,29 @@
       "name": "TEMP Gate WF2 Funnel Scope",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        400,
-        800
-      ],
+      "position": [400, 800],
       "id": "e0000006-0006-4000-8000-000000000006"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "O3Ke6qflNx8CL1x7",
-          "mode": "id"
-        },
+        "workflowId": { "__rl": true, "value": "IR4oQQAYQgUwIUjJ", "mode": "id" },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
             "operation": "notify_admin",
+            "workflow": "OSINT_02_Search_Engine",
+            "node": "TEMP-WF2-FUNNEL-V1",
+            "level": "error",
+            "job_id": "={{ $('Trigger').first().json.job_id }}",
             "message": "={{ $json._temp_wf2_diag_v1_message }}"
           }
         },
-        "options": {
-          "waitForSubWorkflow": false
-        }
+        "options": { "waitForSubWorkflow": false }
       },
       "name": "TEMP Emit WF2 Funnel",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [
-        624,
-        800
-      ],
+      "position": [624, 800],
       "id": "e0000007-0007-4000-8000-000000000007",
       "onError": "continueRegularOutput"
     },
@@ -165,75 +121,48 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ q: $json.query, gl: 'ru', hl: 'ru', num: 10 }) }}",
         "options": {
-          "response": {
-            "response": {
-              "responseFormat": "json",
-              "putOutputInField": "serperResult"
-            }
-          },
+          "response": { "response": { "responseFormat": "json", "putOutputInField": "serperResult" } },
           "timeout": 30000
         }
       },
       "name": "Serper Search",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        288,
-        1168
-      ],
+      "position": [288, 1168],
       "id": "463cdc1e-9f3b-472b-b8a9-6b6fff555303",
       "alwaysOutputData": true,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "utDIwjM5qgsLEmjJ",
-          "name": "serper.dev API"
-        }
-      },
+      "credentials": { "httpHeaderAuth": { "id": "utDIwjM5qgsLEmjJ", "name": "serper.dev API" } },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nif (!item || !item.json) return [{ json: { skip: true } }];\nconst serperData = item.json;\nconst query =\n  serperData.query ||\n  serperData.searchParameters?.q ||\n  serperData.serperResult?.searchParameters?.q;\nif (!query) {\n  throw new Error(\"Extract URLs: required query context is missing\");\n}\nlet job_id = serperData.job_id || '';\nif (!job_id) {\n  try {\n    job_id = $('Trigger').first().json.job_id || '';\n  } catch(e) {}\n}\nif (!job_id) {\n  throw new Error(\"Extract URLs: required job_id context is missing\");\n}\nconst source_platform = serperData.source_platform || 'general';\nconst organic = Array.isArray(serperData.organic)\n  ? serperData.organic\n  : Array.isArray(serperData.serperResult?.organic)\n    ? serperData.serperResult.organic\n    : [];\n// Source-targeted platforms consume up to 10 results; generic uses top 3\nconst SOURCE_TARGETED = new Set(['avito', 'youla', 'vk', 'telegram', 'poisk-pro', 'petrovich']);\nconst isSourceTargeted = SOURCE_TARGETED.has(source_platform);\nconst limit = isSourceTargeted ? 10 : 3;\nconst topN = organic.slice(0, limit);\nconst results = [];\nfor (const entry of topN) {\n  if (!entry.link) continue;\n  results.push({\n    json: {\n      url: entry.link,\n      title: entry.title || '',\n      snippet: entry.snippet || '',\n      source_platform,\n      query,\n      job_id\n    }\n  });\n}\nreturn results.length > 0 ? results : [{ json: { skip: true } }];"
+        "jsCode": "const item = $input.first();\nif (!item || !item.json) return [{ json: { skip: true } }];\nconst serperData = item.json;\nconst query =\n  serperData.query ||\n  serperData.searchParameters?.q ||\n  serperData.serperResult?.searchParameters?.q;\nif (!query) {\n  throw new Error(\"Extract URLs: required query context is missing\");\n}\nlet job_id = serperData.job_id || '';\nif (!job_id) {\n  try {\n    job_id = $('Trigger').first().json.job_id || '';\n  } catch(e) {}\n}\nif (!job_id) {\n  throw new Error(\"Extract URLs: required job_id context is missing\");\n}\nconst source_platform = serperData.source_platform || 'general';\nconst organic = Array.isArray(serperData.organic)\n  ? serperData.organic\n  : Array.isArray(serperData.serperResult?.organic)\n    ? serperData.serperResult.organic\n    : [];\nconst SOURCE_TARGETED = new Set(['avito', 'youla', 'vk', 'telegram', 'poisk-pro', 'petrovich']);\nconst isSourceTargeted = SOURCE_TARGETED.has(source_platform);\nconst limit = isSourceTargeted ? 10 : 3;\nconst topN = organic.slice(0, limit);\nconst results = [];\nfor (const entry of topN) {\n  if (!entry.link) continue;\n  results.push({\n    json: {\n      url: entry.link,\n      title: entry.title || '',\n      snippet: entry.snippet || '',\n      source_platform,\n      query,\n      job_id\n    }\n  });\n}\n\n// DIAG V2: record Serper stats\n(function() {\n  try {\n    const diagKey = 'wf2_diag_v2_' + job_id;\n    const sd = $getWorkflowStaticData('global');\n    if (sd[diagKey]) {\n      sd[diagKey].serperOrganicTotal = (sd[diagKey].serperOrganicTotal || 0) + organic.length;\n      sd[diagKey].extractedUrlTotal = (sd[diagKey].extractedUrlTotal || 0) + results.length;\n      sd[diagKey].ts = Date.now();\n    }\n  } catch(e) { /* fail-open */ }\n})();\n\nreturn results.length > 0 ? results : [{ json: { skip: true } }];"
       },
       "name": "Extract URLs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        512,
-        1168
-      ],
+      "position": [512, 1168],
       "id": "784bb257-492c-412c-96a8-83721766f0d4"
     },
     {
       "parameters": {
-        "jsCode": "// ── Classify Private Candidates v5 zone rules ──\n// Deterministic DEMAND/SUPPLY/AMBIGUOUS classification for search_private.\n// Non-search_private items passthrough unchanged.\n// SUPPLY candidates are rejected before Firecrawl.\n// v5: added Profi/Youla host-zone predicates to close R06_DEFAULT gap.\n// v5.1: added Poisk-Pro / ProPetrovich concrete-order DEMAND predicates.\n\nconst classificationVersion = \"private_rules_v5\";\nconst classifierBuildId = \"v5_zone_rules_001\";\n\n// ── helpers (pure string parsers — no new URL()) ──\nfunction getIntent(item) {\n  if (item.json && item.json.intent) return item.json.intent;\n  try {\n    const ti = $('Trigger').first();\n    if (ti && ti.json && ti.json.intent) return ti.json.intent;\n  } catch(e) {}\n  return '';\n}\nfunction hostname(url) {\n  if (!url || typeof url !== 'string') return '';\n  let s = url.trim().toLowerCase();\n  const schemeIdx = s.indexOf('://');\n  if (schemeIdx !== -1) s = s.slice(schemeIdx + 3);\n  const slashIdx = s.indexOf('/');\n  if (slashIdx !== -1) s = s.slice(0, slashIdx);\n  const colonIdx = s.lastIndexOf(':');\n  if (colonIdx !== -1) s = s.slice(0, colonIdx);\n  if (s.startsWith('www.')) s = s.slice(4);\n  return s;\n}\nfunction pathname(url) {\n  if (!url || typeof url !== 'string') return '';\n  let s = url.trim().toLowerCase();\n  const schemeIdx = s.indexOf('://');\n  if (schemeIdx !== -1) s = s.slice(schemeIdx + 3);\n  const slashIdx = s.indexOf('/');\n  if (slashIdx === -1) return '/';\n  s = s.slice(slashIdx);\n  const qIdx = s.indexOf('?');\n  if (qIdx !== -1) s = s.slice(0, qIdx);\n  const fIdx = s.indexOf('#');\n  if (fIdx !== -1) s = s.slice(0, fIdx);\n  return s;\n}\nfunction hasServicePath(url) {\n  const p = pathname(url);\n  return p.includes('/uslugi/') ||\n         p.includes('/promo/') ||\n         p.includes('/service/') ||\n         p.includes('/remont/') ||\n         p.includes('montazh') ||\n         p.includes('montaj') ||\n         p.includes('ventil') ||\n         p.includes('ventilyats');\n}\nfunction hasServiceContext(text) {\n  return text.includes('монтаж') ||\n         text.includes('вентиляц') ||\n         text.includes('ventil') ||\n         text.includes('ventilyats');\n}\nfunction isProfiHost(url) {\n  const h = hostname(url);\n  return h === 'profi.ru' || h.endsWith('.profi.ru');\n}\nfunction isYoulaHost(url) {\n  const h = hostname(url);\n  return h === 'youla.ru' || h.endsWith('.youla.ru');\n}\nfunction isProfiServiceZone(url) {\n  if (!isProfiHost(url)) return false;\n  const p = pathname(url);\n  return /^\\/geo-[^/]+\\/remont(?:\\/|$)/.test(p);\n}\nfunction isYoulaServiceZone(url, lower) {\n  if (!isYoulaHost(url)) return false;\n  const p = pathname(url);\n  return p.includes('/uslugi/') && hasServiceContext(lower);\n}\n\n// ── v5.1: Source-aware concrete-order DEMAND predicates ──\nfunction isPoiskProHost(url) {\n  const h = hostname(url);\n  return h === 'poisk-pro.ru' || h.endsWith('.poisk-pro.ru');\n}\nfunction isPetrovichHost(url) {\n  const h = hostname(url);\n  return h === 'pro.petrovich.ru' || h.endsWith('.pro.petrovich.ru');\n}\nfunction isPoiskProOrder(url) {\n  if (!isPoiskProHost(url)) return false;\n  const p = pathname(url);\n  return /^\\/order\\/\\d+(?:\\/|$)/.test(p);\n}\nfunction isPetrovichOrder(url) {\n  if (!isPetrovichHost(url)) return false;\n  const p = pathname(url);\n  const hasOrdersPath = p.includes('/orders/') || p.includes('/orders-btob/');\n  if (!hasOrdersPath) return false;\n  return /\\/\\d+$/.test(p);\n}\n\n// ── SUPPLY rules (ordered by precedence) ──\n\nfunction isR00ServiceProviderPage(url, lower) {\n  if (isProfiServiceZone(url)) return true;\n  if (isYoulaServiceZone(url, lower)) return true;\n  if (!hasServicePath(url)) return false;\n  return lower.includes('под ключ') ||\n         lower.includes('компания') ||\n         lower.includes('стоимость') ||\n         lower.includes('цены') ||\n         lower.includes('скидкой') ||\n         lower.includes('специалиста готовы') ||\n         lower.includes('специалисты готовы') ||\n         lower.includes('найдите частного') ||\n         lower.includes('исполнителей') ||\n         lower.includes('платная доска объявлений') ||\n         lower.includes('хотите установить') ||\n         lower.includes('хотите купить');\n}\n\nfunction isR01MarketplacePromo(url, lower) {\n  if (!isProfiHost(url)) return false;\n  const p = pathname(url);\n  if (!p.includes('/promo/')) return false;\n  return lower.includes('специалиста готовы') ||\n         lower.includes('специалисты готовы') ||\n         lower.includes('найдите') ||\n         lower.includes('скидкой') ||\n         lower.includes('на нашем сайте') ||\n         lower.includes('рубл') ||\n         lower.includes('исполнителей');\n}\n\nfunction isR02ExecutorCatalog(lower) {\n  const hasExecListing = lower.includes('исполнител');\n  if (!hasExecListing) return false;\n  return hasServiceContext(lower);\n}\n\nfunction isR03CompanyMarketing(lower) {\n  if (!lower.includes('компания')) return false;\n  return hasServiceContext(lower);\n}\n\nfunction isR04SelfPromotion(lower) {\n  if (lower.includes('наша компания')) return true;\n  if (lower.includes('принимает заказы') && !lower.includes('ищу')) return true;\n  if (lower.includes('оказываем услуги')) return true;\n  if (lower.includes('выполняем') && lower.includes('монтаж')) return true;\n  if (lower.includes('бригада') && lower.includes('предлагает')) return true;\n  if (lower.includes('звоните')) return true;\n  if (lower.includes('оставить заявку') && (lower.includes('монтаж') || lower.includes('вентиляц'))) return true;\n  return false;\n}\n\nfunction isR05Demand(url, lower) {\n  const p = pathname(url);\n  if (p.includes('/request/') || p.includes('/requests/')) return true;\n  if (p.includes('/zayavk') || p.includes('/zakaz')) return true;\n  if (lower.includes('ищу бригаду')) return true;\n  if (lower.includes('нужна бригада')) return true;\n  if (lower.includes('ищем исполнител')) return true;\n  if (lower.includes('посоветуйте бригаду')) return true;\n  if (lower.includes('поделитесь контактами')) return true;\n  if (lower.includes('кто может сделать')) return true;\n  if (lower.includes('ищем мастер')) return true;\n  if (lower.includes('ищу мастер')) return true;\n  if (lower.includes('заявки на субподряд')) return true;\n  const hasReq = lower.includes('требуется') && (lower.includes('выполнить') || lower.includes('сделать'));\n  const hasResources = lower.includes('расходники предоставим') ||\n                       lower.includes('леса предоставим') ||\n                       lower.includes('объемы внушительные');\n  const hasRegion = lower.includes('регион:');\n  const hasAddress = lower.includes('адрес:');\n  const taskSignals = [hasReq, hasResources, hasRegion, hasAddress].filter(Boolean).length;\n  if (taskSignals >= 2) return true;\n  return false;\n}\n\n// ── debug build (v5 zone rules + v5.1 order predicates) ──\nfunction buildDebug(url, title, snippet, idx) {\n  const lower = (title + ' ' + snippet).toLowerCase();\n  const path = pathname(url);\n  const hsPath = hasServicePath(url);\n  const hsCtx = hasServiceContext(lower);\n  const ipHost = isProfiHost(url);\n  const iyHost = isYoulaHost(url);\n  const ipServiceZone = isProfiServiceZone(url);\n  const iyServiceZone = isYoulaServiceZone(url, lower);\n  const ippHost = isPoiskProHost(url);\n  const ipvHost = isPetrovichHost(url);\n  const ippOrder = isPoiskProOrder(url);\n  const ipvOrder = isPetrovichOrder(url);\n  const r00 = isR00ServiceProviderPage(url, lower);\n  const r01 = isR01MarketplacePromo(url, lower);\n  const r02 = isR02ExecutorCatalog(lower);\n  const r03 = isR03CompanyMarketing(lower);\n  const r04 = isR04SelfPromotion(lower);\n  const r05 = isR05Demand(url, lower);\n  let matchedRule = 'R06_DEFAULT';\n  let matchedPrecedence = 6;\n  if (ippOrder) { matchedRule = 'R05A_POISKPRO_ORDER'; matchedPrecedence = -1; }\n  else if (ipvOrder) { matchedRule = 'R05B_PETROVICH_ORDER'; matchedPrecedence = -1; }\n  else if (r00) { matchedRule = 'R00_SERVICE_PROVIDER_PAGE'; matchedPrecedence = 0; }\n  else if (r01) { matchedRule = 'R01_MARKETPLACE_PROMO'; matchedPrecedence = 1; }\n  else if (r02) { matchedRule = 'R02_EXECUTOR_CATALOG'; matchedPrecedence = 2; }\n  else if (r03) { matchedRule = 'R03_COMPANY_MARKETING'; matchedPrecedence = 3; }\n  else if (r04) { matchedRule = 'R04_SELF_PROMOTION'; matchedPrecedence = 4; }\n  else if (r05) { matchedRule = 'R05_DEMAND'; matchedPrecedence = 5; }\n  return {\n    classifier_build_id: classifierBuildId,\n    input_index: idx,\n    url_raw_len: url.length,\n    url_raw_preview: url.slice(0, 100),\n    title_raw_len: title.length,\n    title_raw_preview: title.slice(0, 100),\n    snippet_raw_len: snippet.length,\n    snippet_raw_preview: snippet.slice(0, 100),\n    path_normalized: path,\n    lower_preview: lower.slice(0, 150),\n    predicates: {\n      hasServicePath: hsPath,\n      hasServiceContext: hsCtx,\n      isProfiHost: ipHost,\n      isYoulaHost: iyHost,\n      isProfiServiceZone: ipServiceZone,\n      isYoulaServiceZone: iyServiceZone,\n      isPoiskProHost: ippHost,\n      isPetrovichHost: ipvHost,\n      isPoiskProOrder: ippOrder,\n      isPetrovichOrder: ipvOrder,\n      R00_SERVICE_PROVIDER_PAGE: r00,\n      R01_MARKETPLACE_PROMO: r01,\n      R02_EXECUTOR_CATALOG: r02,\n      R03_COMPANY_MARKETING: r03,\n      R04_SELF_PROMOTION: r04,\n      R05_DEMAND: r05\n    },\n    matched_rule: matchedRule,\n    matched_precedence: matchedPrecedence\n  };\n}\n\n// ── classify (v5.1: concrete-order DEMAND rules checked BEFORE SUPPLY) ──\nfunction classify(url, title, snippet) {\n  const lower = (title + ' ' + snippet).toLowerCase();\n  if (isPoiskProOrder(url))                     return { cls: 'DEMAND', codes: ['R05A_POISKPRO_ORDER'] };\n  if (isPetrovichOrder(url))                     return { cls: 'DEMAND', codes: ['R05B_PETROVICH_ORDER'] };\n  if (isR00ServiceProviderPage(url, lower))      return { cls: 'SUPPLY', codes: ['R00_SERVICE_PROVIDER_PAGE'] };\n  if (isR01MarketplacePromo(url, lower))          return { cls: 'SUPPLY', codes: ['R01_MARKETPLACE_PROMO'] };\n  if (isR02ExecutorCatalog(lower))                return { cls: 'SUPPLY', codes: ['R02_EXECUTOR_CATALOG'] };\n  if (isR03CompanyMarketing(lower))               return { cls: 'SUPPLY', codes: ['R03_COMPANY_MARKETING'] };\n  if (isR04SelfPromotion(lower))                  return { cls: 'SUPPLY', codes: ['R04_SELF_PROMOTION'] };\n  if (isR05Demand(url, lower))                    return { cls: 'DEMAND', codes: ['R05_DEMAND'] };\n  return { cls: 'AMBIGUOUS', codes: ['R06_DEFAULT'] };\n}\n\n// ── main ──\nconst inputItems = $input.all();\nif (!inputItems || inputItems.length === 0) return [{ json: { skip: true } }];\nconst first = inputItems[0];\nif (!first || !first.json) return [{ json: { skip: true } }];\nif (first.json.skip === true) return inputItems;\nconst intent = getIntent(first);\nif (intent !== 'search_private') return inputItems;\n\nconst query = first.json.query || '';\nconst jobId = first.json.job_id || '';\nconst sourcePlatform = first.json.source_platform || 'general';\n\nconst kept = [];\nlet supplyCount = 0;\nconst allSupplyCodes = new Set();\nconst rejectedDebugItems = [];\n\nfor (let idx = 0; idx < inputItems.length; idx++) {\n  const item = inputItems[idx];\n  if (!item || !item.json) continue;\n  const url = (item.json.url || '').toString().trim();\n  const title = (item.json.title || '').toString();\n  const snippet = (item.json.snippet || '').toString();\n  const result = classify(url, title, snippet);\n  const debug = buildDebug(url, title, snippet, idx);\n  if (result.cls === 'SUPPLY') {\n    supplyCount++;\n    result.codes.forEach(c => allSupplyCodes.add(c));\n    rejectedDebugItems.push({\n      ...debug,\n      final_candidate_class: 'SUPPLY',\n      final_candidate_decision: 'REJECT'\n    });\n  } else {\n    debug.final_candidate_class = result.cls;\n    debug.final_candidate_decision = 'KEEP';\n    kept.push({\n      json: {\n        ...item.json,\n        candidate_class: result.cls,\n        candidate_decision: 'KEEP',\n        classification_version: classificationVersion,\n        classification_reason_codes: result.codes,\n        classification_debug: debug,\n        skip: false\n      }\n    });\n  }\n}\n\nif (kept.length === 0 && supplyCount > 0) {\n  return [{\n    json: {\n      skip: true,\n      query,\n      job_id: jobId,\n      source_platform: sourcePlatform,\n      candidate_class: 'SUPPLY',\n      candidate_decision: 'REJECT_ALL_SUPPLY',\n      classification_version: classificationVersion,\n      classification_reason_codes: [...allSupplyCodes],\n      rejected_count: supplyCount,\n      classification_debug_items: rejectedDebugItems\n    }\n  }];\n}\nreturn kept;",
+        "jsCode": "// ── Classify Private Candidates v5 zone rules ──\n// Deterministic DEMAND/SUPPLY/AMBIGUOUS classification for search_private.\n// Non-search_private items passthrough unchanged.\n// SUPPLY candidates are rejected before Firecrawl.\n// v5: added Profi/Youla host-zone predicates to close R06_DEFAULT gap.\n// v5.1: added Poisk-Pro / ProPetrovich concrete-order DEMAND predicates.\n\nconst classificationVersion = \"private_rules_v5\";\nconst classifierBuildId = \"v5_zone_rules_001\";\n\n// ── helpers (pure string parsers — no new URL()) ──\nfunction getIntent(item) {\n  if (item.json && item.json.intent) return item.json.intent;\n  try {\n    const ti = $('Trigger').first();\n    if (ti && ti.json && ti.json.intent) return ti.json.intent;\n  } catch(e) {}\n  return '';\n}\nfunction hostname(url) {\n  if (!url || typeof url !== 'string') return '';\n  let s = url.trim().toLowerCase();\n  const schemeIdx = s.indexOf('://');\n  if (schemeIdx !== -1) s = s.slice(schemeIdx + 3);\n  const slashIdx = s.indexOf('/');\n  if (slashIdx !== -1) s = s.slice(0, slashIdx);\n  const colonIdx = s.lastIndexOf(':');\n  if (colonIdx !== -1) s = s.slice(0, colonIdx);\n  if (s.startsWith('www.')) s = s.slice(4);\n  return s;\n}\nfunction pathname(url) {\n  if (!url || typeof url !== 'string') return '';\n  let s = url.trim().toLowerCase();\n  const schemeIdx = s.indexOf('://');\n  if (schemeIdx !== -1) s = s.slice(schemeIdx + 3);\n  const slashIdx = s.indexOf('/');\n  if (slashIdx === -1) return '/';\n  s = s.slice(slashIdx);\n  const qIdx = s.indexOf('?');\n  if (qIdx !== -1) s = s.slice(0, qIdx);\n  const fIdx = s.indexOf('#');\n  if (fIdx !== -1) s = s.slice(0, fIdx);\n  return s;\n}\nfunction hasServicePath(url) {\n  const p = pathname(url);\n  return p.includes('/uslugi/') ||\n         p.includes('/promo/') ||\n         p.includes('/service/') ||\n         p.includes('/remont/') ||\n         p.includes('montazh') ||\n         p.includes('montaj') ||\n         p.includes('ventil') ||\n         p.includes('ventilyats');\n}\nfunction hasServiceContext(text) {\n  return text.includes('монтаж') ||\n         text.includes('вентиляц') ||\n         text.includes('ventil') ||\n         text.includes('ventilyats');\n}\nfunction isProfiHost(url) {\n  const h = hostname(url);\n  return h === 'profi.ru' || h.endsWith('.profi.ru');\n}\nfunction isYoulaHost(url) {\n  const h = hostname(url);\n  return h === 'youla.ru' || h.endsWith('.youla.ru');\n}\nfunction isProfiServiceZone(url) {\n  if (!isProfiHost(url)) return false;\n  const p = pathname(url);\n  return /^\\/geo-[^/]+\\/remont(?:\\/|$)/.test(p);\n}\nfunction isYoulaServiceZone(url, lower) {\n  if (!isYoulaHost(url)) return false;\n  const p = pathname(url);\n  return p.includes('/uslugi/') && hasServiceContext(lower);\n}\n\n// ── v5.1: Source-aware concrete-order DEMAND predicates ──\nfunction isPoiskProHost(url) {\n  const h = hostname(url);\n  return h === 'poisk-pro.ru' || h.endsWith('.poisk-pro.ru');\n}\nfunction isPetrovichHost(url) {\n  const h = hostname(url);\n  return h === 'pro.petrovich.ru' || h.endsWith('.pro.petrovich.ru');\n}\nfunction isPoiskProOrder(url) {\n  if (!isPoiskProHost(url)) return false;\n  const p = pathname(url);\n  return /^\\/order\\/\\d+(?:\\/|$)/.test(p);\n}\nfunction isPetrovichOrder(url) {\n  if (!isPetrovichHost(url)) return false;\n  const p = pathname(url);\n  const hasOrdersPath = p.includes('/orders/') || p.includes('/orders-btob/');\n  if (!hasOrdersPath) return false;\n  return /\\/\\d+$/.test(p);\n}\n\n// ── SUPPLY rules (ordered by precedence) ──\n\nfunction isR00ServiceProviderPage(url, lower) {\n  if (isProfiServiceZone(url)) return true;\n  if (isYoulaServiceZone(url, lower)) return true;\n  if (!hasServicePath(url)) return false;\n  return lower.includes('под ключ') ||\n         lower.includes('компания') ||\n         lower.includes('стоимость') ||\n         lower.includes('цены') ||\n         lower.includes('скидкой') ||\n         lower.includes('специалиста готовы') ||\n         lower.includes('специалисты готовы') ||\n         lower.includes('найдите частного') ||\n         lower.includes('исполнителей') ||\n         lower.includes('платная доска объявлений') ||\n         lower.includes('хотите установить') ||\n         lower.includes('хотите купить');\n}\n\nfunction isR01MarketplacePromo(url, lower) {\n  if (!isProfiHost(url)) return false;\n  const p = pathname(url);\n  if (!p.includes('/promo/')) return false;\n  return lower.includes('специалиста готовы') ||\n         lower.includes('специалисты готовы') ||\n         lower.includes('найдите') ||\n         lower.includes('скидкой') ||\n         lower.includes('на нашем сайте') ||\n         lower.includes('рубл') ||\n         lower.includes('исполнителей');\n}\n\nfunction isR02ExecutorCatalog(lower) {\n  const hasExecListing = lower.includes('исполнител');\n  if (!hasExecListing) return false;\n  return hasServiceContext(lower);\n}\n\nfunction isR03CompanyMarketing(lower) {\n  if (!lower.includes('компания')) return false;\n  return hasServiceContext(lower);\n}\n\nfunction isR04SelfPromotion(lower) {\n  if (lower.includes('наша компания')) return true;\n  if (lower.includes('принимает заказы') && !lower.includes('ищу')) return true;\n  if (lower.includes('оказываем услуги')) return true;\n  if (lower.includes('выполняем') && lower.includes('монтаж')) return true;\n  if (lower.includes('бригада') && lower.includes('предлагает')) return true;\n  if (lower.includes('звоните')) return true;\n  if (lower.includes('оставить заявку') && (lower.includes('монтаж') || lower.includes('вентиляц'))) return true;\n  return false;\n}\n\nfunction isR05Demand(url, lower) {\n  const p = pathname(url);\n  if (p.includes('/request/') || p.includes('/requests/')) return true;\n  if (p.includes('/zayavk') || p.includes('/zakaz')) return true;\n  if (lower.includes('ищу бригаду')) return true;\n  if (lower.includes('нужна бригада')) return true;\n  if (lower.includes('ищем исполнител')) return true;\n  if (lower.includes('посоветуйте бригаду')) return true;\n  if (lower.includes('поделитесь контактами')) return true;\n  if (lower.includes('кто может сделать')) return true;\n  if (lower.includes('ищем мастер')) return true;\n  if (lower.includes('ищу мастер')) return true;\n  if (lower.includes('заявки на субподряд')) return true;\n  const hasReq = lower.includes('требуется') && (lower.includes('выполнить') || lower.includes('сделать'));\n  const hasResources = lower.includes('расходники предоставим') ||\n                       lower.includes('леса предоставим') ||\n                       lower.includes('объемы внушительные');\n  const hasRegion = lower.includes('регион:');\n  const hasAddress = lower.includes('адрес:');\n  const taskSignals = [hasReq, hasResources, hasRegion, hasAddress].filter(Boolean).length;\n  if (taskSignals >= 2) return true;\n  return false;\n}\n\n// ── debug build (v5 zone rules + v5.1 order predicates) ──\nfunction buildDebug(url, title, snippet, idx) {\n  const lower = (title + ' ' + snippet).toLowerCase();\n  const path = pathname(url);\n  const hsPath = hasServicePath(url);\n  const hsCtx = hasServiceContext(lower);\n  const ipHost = isProfiHost(url);\n  const iyHost = isYoulaHost(url);\n  const ipServiceZone = isProfiServiceZone(url);\n  const iyServiceZone = isYoulaServiceZone(url, lower);\n  const ippHost = isPoiskProHost(url);\n  const ipvHost = isPetrovichHost(url);\n  const ippOrder = isPoiskProOrder(url);\n  const ipvOrder = isPetrovichOrder(url);\n  const r00 = isR00ServiceProviderPage(url, lower);\n  const r01 = isR01MarketplacePromo(url, lower);\n  const r02 = isR02ExecutorCatalog(lower);\n  const r03 = isR03CompanyMarketing(lower);\n  const r04 = isR04SelfPromotion(lower);\n  const r05 = isR05Demand(url, lower);\n  let matchedRule = 'R06_DEFAULT';\n  let matchedPrecedence = 6;\n  if (ippOrder) { matchedRule = 'R05A_POISKPRO_ORDER'; matchedPrecedence = -1; }\n  else if (ipvOrder) { matchedRule = 'R05B_PETROVICH_ORDER'; matchedPrecedence = -1; }\n  else if (r00) { matchedRule = 'R00_SERVICE_PROVIDER_PAGE'; matchedPrecedence = 0; }\n  else if (r01) { matchedRule = 'R01_MARKETPLACE_PROMO'; matchedPrecedence = 1; }\n  else if (r02) { matchedRule = 'R02_EXECUTOR_CATALOG'; matchedPrecedence = 2; }\n  else if (r03) { matchedRule = 'R03_COMPANY_MARKETING'; matchedPrecedence = 3; }\n  else if (r04) { matchedRule = 'R04_SELF_PROMOTION'; matchedPrecedence = 4; }\n  else if (r05) { matchedRule = 'R05_DEMAND'; matchedPrecedence = 5; }\n  return {\n    classifier_build_id: classifierBuildId,\n    input_index: idx,\n    url_raw_len: url.length,\n    url_raw_preview: url.slice(0, 100),\n    title_raw_len: title.length,\n    title_raw_preview: title.slice(0, 100),\n    snippet_raw_len: snippet.length,\n    snippet_raw_preview: snippet.slice(0, 100),\n    path_normalized: path,\n    lower_preview: lower.slice(0, 150),\n    predicates: {\n      hasServicePath: hsPath,\n      hasServiceContext: hsCtx,\n      isProfiHost: ipHost,\n      isYoulaHost: iyHost,\n      isProfiServiceZone: ipServiceZone,\n      isYoulaServiceZone: iyServiceZone,\n      isPoiskProHost: ippHost,\n      isPetrovichHost: ipvHost,\n      isPoiskProOrder: ippOrder,\n      isPetrovichOrder: ipvOrder,\n      R00_SERVICE_PROVIDER_PAGE: r00,\n      R01_MARKETPLACE_PROMO: r01,\n      R02_EXECUTOR_CATALOG: r02,\n      R03_COMPANY_MARKETING: r03,\n      R04_SELF_PROMOTION: r04,\n      R05_DEMAND: r05\n    },\n    matched_rule: matchedRule,\n    matched_precedence: matchedPrecedence\n  };\n}\n\n// ── classify (v5.1: concrete-order DEMAND rules checked BEFORE SUPPLY) ──\nfunction classify(url, title, snippet) {\n  const lower = (title + ' ' + snippet).toLowerCase();\n  if (isPoiskProOrder(url))                     return { cls: 'DEMAND', codes: ['R05A_POISKPRO_ORDER'] };\n  if (isPetrovichOrder(url))                     return { cls: 'DEMAND', codes: ['R05B_PETROVICH_ORDER'] };\n  if (isR00ServiceProviderPage(url, lower))      return { cls: 'SUPPLY', codes: ['R00_SERVICE_PROVIDER_PAGE'] };\n  if (isR01MarketplacePromo(url, lower))          return { cls: 'SUPPLY', codes: ['R01_MARKETPLACE_PROMO'] };\n  if (isR02ExecutorCatalog(lower))                return { cls: 'SUPPLY', codes: ['R02_EXECUTOR_CATALOG'] };\n  if (isR03CompanyMarketing(lower))               return { cls: 'SUPPLY', codes: ['R03_COMPANY_MARKETING'] };\n  if (isR04SelfPromotion(lower))                  return { cls: 'SUPPLY', codes: ['R04_SELF_PROMOTION'] };\n  if (isR05Demand(url, lower))                    return { cls: 'DEMAND', codes: ['R05_DEMAND'] };\n  return { cls: 'AMBIGUOUS', codes: ['R06_DEFAULT'] };\n}\n\n// ── main ──\nconst inputItems = $input.all();\nif (!inputItems || inputItems.length === 0) return [{ json: { skip: true } }];\nconst first = inputItems[0];\nif (!first || !first.json) return [{ json: { skip: true } }];\nif (first.json.skip === true) return inputItems;\nconst intent = getIntent(first);\nif (intent !== 'search_private') return inputItems;\n\nconst query = first.json.query || '';\nconst jobId = first.json.job_id || '';\nconst sourcePlatform = first.json.source_platform || 'general';\n\nconst kept = [];\nlet supplyCount = 0;\nconst allSupplyCodes = new Set();\nconst rejectedDebugItems = [];\n\nfor (let idx = 0; idx < inputItems.length; idx++) {\n  const item = inputItems[idx];\n  if (!item || !item.json) continue;\n  const url = (item.json.url || '').toString().trim();\n  const title = (item.json.title || '').toString();\n  const snippet = (item.json.snippet || '').toString();\n  const result = classify(url, title, snippet);\n  const debug = buildDebug(url, title, snippet, idx);\n  if (result.cls === 'SUPPLY') {\n    supplyCount++;\n    result.codes.forEach(function(c) { allSupplyCodes.add(c); });\n    rejectedDebugItems.push(Object.assign({}, debug, { final_candidate_class: 'SUPPLY', final_candidate_decision: 'REJECT' }));\n  } else {\n    debug.final_candidate_class = result.cls;\n    debug.final_candidate_decision = 'KEEP';\n    kept.push({\n      json: Object.assign({}, item.json, {\n        candidate_class: result.cls,\n        candidate_decision: 'KEEP',\n        classification_version: classificationVersion,\n        classification_reason_codes: result.codes,\n        classification_debug: debug,\n        skip: false\n      })\n    });\n  }\n}\n\n// DIAG V2: record classification stats\n(function() {\n  try {\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    if (sd[diagKey]) {\n      sd[diagKey].classificationInput = (sd[diagKey].classificationInput || 0) + inputItems.length;\n      sd[diagKey].supplyCount = (sd[diagKey].supplyCount || 0) + supplyCount;\n      sd[diagKey].demandCount = (sd[diagKey].demandCount || 0) + kept.filter(function(k) { return k.json.candidate_class === 'DEMAND'; }).length;\n      sd[diagKey].ambiguousCount = (sd[diagKey].ambiguousCount || 0) + kept.filter(function(k) { return k.json.candidate_class === 'AMBIGUOUS'; }).length;\n      sd[diagKey].keepCount = (sd[diagKey].keepCount || 0) + kept.length;\n      sd[diagKey].rejectCount = (sd[diagKey].rejectCount || 0) + supplyCount;\n      if (!sd[diagKey].reasonCodes) sd[diagKey].reasonCodes = {};\n      allSupplyCodes.forEach(function(code) {\n        sd[diagKey].reasonCodes[code] = (sd[diagKey].reasonCodes[code] || 0) + 1;\n      });\n      sd[diagKey].ts = Date.now();\n    }\n  } catch(e) { /* fail-open */ }\n})();\n\nif (kept.length === 0 && supplyCount > 0) {\n  return [{\n    json: {\n      skip: true,\n      query,\n      job_id: jobId,\n      source_platform: sourcePlatform,\n      candidate_class: 'SUPPLY',\n      candidate_decision: 'REJECT_ALL_SUPPLY',\n      classification_version: classificationVersion,\n      classification_reason_codes: Array.from(allSupplyCodes),\n      rejected_count: supplyCount,\n      classification_debug_items: rejectedDebugItems\n    }\n  }];\n}\nreturn kept;",
         "mode": "runOnceForAllItems"
       },
       "name": "Classify Private Candidates",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        624,
-        1168
-      ],
+      "position": [624, 1168],
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
           "conditions": [
             {
               "id": "c1",
-              "operator": {
-                "type": "boolean",
-                "operation": "notEqual"
-              },
+              "operator": { "type": "boolean", "operation": "notEqual" },
               "leftValue": "={{ $json.skip === true }}",
               "rightValue": "={{ true }}"
             },
@@ -241,11 +170,7 @@
               "id": "url_cond",
               "leftValue": "={{ $json.url }}",
               "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
             }
           ],
           "combinator": "and"
@@ -256,49 +181,35 @@
       "name": "Filter Empty",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        736,
-        1168
-      ],
+      "position": [736, 1168],
       "id": "222667de-863a-41d2-ba8d-e4687cfa5035"
     },
     {
       "parameters": {
-        "jsCode": "// TEMP Diag Filter Pass — records items passing through Filter Empty\n// Passthrough: all items pass unchanged to Loop URLs.\nreturn $input.all();"
+        "jsCode": "// TEMP Diag Filter Pass V2 — records items passing Filter Empty to accumulator\nconst items = $input.all();\n(function() {\n  try {\n    const jobId = (items && items.length > 0 && items[0].json) ? items[0].json.job_id : '';\n    if (!jobId) return;\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    if (sd[diagKey]) {\n      sd[diagKey].filterEmptyPassed = (sd[diagKey].filterEmptyPassed || 0) + items.length;\n      sd[diagKey].ts = Date.now();\n    }\n  } catch(e) { /* fail-open */ }\n})();\nreturn items;"
       },
       "name": "TEMP Diag Filter Pass",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        848,
-        1072
-      ],
+      "position": [848, 1072],
       "id": "e0000001-0001-4000-8000-000000000001"
     },
     {
-      "parameters": {
-        "options": {}
-      },
+      "parameters": { "options": {} },
       "name": "Loop URLs",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [
-        960,
-        1072
-      ],
+      "position": [960, 1072],
       "id": "a3b74931-9eb0-4443-829c-ddf7518aef4d"
     },
     {
       "parameters": {
-        "jsCode": "// TEMP Diag URL Loop — records URLs sent to Firecrawl\n// Passthrough: all items pass unchanged to Firecrawl Scrape.\nreturn $input.all();"
+        "jsCode": "// TEMP Diag URL Loop V2 — records URLs entering Firecrawl to accumulator\nconst items = $input.all();\n(function() {\n  try {\n    const jobId = (items && items.length > 0 && items[0].json) ? items[0].json.job_id : '';\n    if (!jobId) return;\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    if (sd[diagKey]) {\n      sd[diagKey].loopUrlsEntered = (sd[diagKey].loopUrlsEntered || 0) + items.length;\n      sd[diagKey].ts = Date.now();\n    }\n  } catch(e) { /* fail-open */ }\n})();\nreturn items;"
       },
       "name": "TEMP Diag URL Loop",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1064,
-        1168
-      ],
+      "position": [1064, 1168],
       "id": "e0000002-0002-4000-8000-000000000002"
     },
     {
@@ -311,72 +222,46 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({url:$json.url,formats:['markdown'],onlyMainContent:true,timeout:30000}) }}",
         "options": {
-          "response": {
-            "response": {
-              "responseFormat": "json"
-            }
-          },
+          "response": { "response": { "responseFormat": "json" } },
           "timeout": 90000
         }
       },
       "name": "Firecrawl Scrape",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1168,
-        1168
-      ],
+      "position": [1168, 1168],
       "id": "e04eecc9-55cc-4d11-bcef-20a3f55d8f03",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "SEkiK8JUUHNJGpjf",
-          "name": "Firecrawl API"
-        }
-      },
+      "credentials": { "httpHeaderAuth": { "id": "SEkiK8JUUHNJGpjf", "name": "Firecrawl API" } },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nif (!item || !item.json) return [{ json: { no_results: true, url: '', job_id: '', source_url: '' } }];\nconst fcRaw = item.json;\n\nlet urlCtx = {};\ntry {\n  const urlItems = $items(\"Loop URLs\", 0, $runIndex);\n  if (urlItems && urlItems.length > 0) urlCtx = urlItems[0].json || {};\n} catch(e) {\n  try { urlCtx = $('Loop URLs').item?.json || {}; } catch(e2) {}\n}\n\nconst sourceUrl = urlCtx.url || '';\nconst jobId = urlCtx.job_id || '';\nconst sourcePlatform = urlCtx.source_platform || 'general';\n\nconst fc = fcRaw.firecrawlResult || (fcRaw.success !== undefined ? fcRaw : {});\nconst fcData = (fc.data || fc);\nconst markdown = fcData.markdown || fcData.content || '';\nconst metadata = fcData.metadata || {};\nconst title = metadata.title || fcData.title || urlCtx.title || '';\n\nif (!markdown || fc.error) return [{ json: { no_results: true, url: sourceUrl, job_id: jobId, source_url: sourceUrl } }];\n\nfunction normalizePhone(phone) {\n  const d = phone.replace(/\\D/g, '');\n  if (d.length === 11 && (d[0] === '7' || d[0] === '8')) return '+7' + d.slice(1);\n  if (d.length === 10) return '+7' + d;\n  return '+7' + d.slice(-10);\n}\nfunction generateHash(str) {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); hash = ((hash << 5) - hash) + c; hash = hash & hash; }\n  return Math.abs(hash).toString(16);\n}\n\nconst rawPhones = markdown.match(/(?:\\+7|8)[\\s\\-\\(]?\\d{3}[\\s\\-\\)]?\\d{3}[\\s\\-]?\\d{2}[\\s\\-]?\\d{2}/g) || [];\nconst phones = [...new Set(rawPhones.map(normalizePhone))];\nconst tgMatches = markdown.match(/(?:t\\.me\\/|@)([a-zA-Z0-9_]{5,32})/g) || [];\nconst telegrams = [...new Set(tgMatches.map(m => m.startsWith('@') ? m : '@' + m.replace('t.me/', '')))];\nconst emails = [...new Set(markdown.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [])];\nconst budgets = markdown.match(/(\\d{1,3}(?:[\\s\\.,]?\\d{3})*)\\s*(?:руб|₽|тыс|к\\b|млн)/gi) || [];\nconst description = markdown.slice(0, 500);\nconst contactString = phones.join('') + telegrams.join('') + emails.join('');\nconst dedup_hash = generateHash(contactString + title);\n\nreturn [{ json: {\n  lead_id: 'lead_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10),\n  job_id: jobId, source_url: sourceUrl, source_platform: sourcePlatform,\n  title, description, contact_phone: phones.join('; '), contact_tg: telegrams.join('; '),\n  contact_email: emails.join('; '), contact_name: '', region: '', budget: budgets.join('; '),\n  phones_arr: phones, telegrams_arr: telegrams, emails_arr: emails, dedup_hash,\n  scraped_at: new Date().toISOString(), status: 'new', total_score: 0\n}}];"
+        "jsCode": "const item = $input.first();\nif (!item || !item.json) return [{ json: { no_results: true, url: '', job_id: '', source_url: '' } }];\nconst fcRaw = item.json;\n\nlet urlCtx = {};\ntry {\n  const urlItems = $items(\"Loop URLs\", 0, $runIndex);\n  if (urlItems && urlItems.length > 0) urlCtx = urlItems[0].json || {};\n} catch(e) {\n  try { urlCtx = $('Loop URLs').item?.json || {}; } catch(e2) {}\n}\n\nconst sourceUrl = urlCtx.url || '';\nconst jobId = urlCtx.job_id || '';\nconst sourcePlatform = urlCtx.source_platform || 'general';\n\nconst fc = fcRaw.firecrawlResult || (fcRaw.success !== undefined ? fcRaw : {});\nconst fcData = (fc.data || fc);\nconst markdown = fcData.markdown || fcData.content || '';\nconst metadata = fcData.metadata || {};\nconst title = metadata.title || fcData.title || urlCtx.title || '';\n\n// DIAG V2: record Firecrawl stats\n(function() {\n  try {\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    if (sd[diagKey]) {\n      sd[diagKey].firecrawlAttempted = (sd[diagKey].firecrawlAttempted || 0) + 1;\n      sd[diagKey].firecrawlOutput = (sd[diagKey].firecrawlOutput || 0) + 1;\n      if (markdown && !fc.error) {\n        sd[diagKey].firecrawlUsable = (sd[diagKey].firecrawlUsable || 0) + 1;\n      }\n      sd[diagKey].ts = Date.now();\n    }\n  } catch(e) { /* fail-open */ }\n})();\n\nif (!markdown || fc.error) return [{ json: { no_results: true, url: sourceUrl, job_id: jobId, source_url: sourceUrl } }];\n\nfunction normalizePhone(phone) {\n  const d = phone.replace(/\\D/g, '');\n  if (d.length === 11 && (d[0] === '7' || d[0] === '8')) return '+7' + d.slice(1);\n  if (d.length === 10) return '+7' + d;\n  return '+7' + d.slice(-10);\n}\nfunction generateHash(str) {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); hash = ((hash << 5) - hash) + c; hash = hash & hash; }\n  return Math.abs(hash).toString(16);\n}\n\nconst rawPhones = markdown.match(/(?:\\+7|8)[\\s\\-\\(]?\\d{3}[\\s\\-\\)]?\\d{3}[\\s\\-]?\\d{2}[\\s\\-]?\\d{2}/g) || [];\nconst phones = [...new Set(rawPhones.map(normalizePhone))];\nconst tgMatches = markdown.match(/(?:t\\.me\\/|@)([a-zA-Z0-9_]{5,32})/g) || [];\nconst telegrams = [...new Set(tgMatches.map(function(m) { return m.startsWith('@') ? m : '@' + m.replace('t.me/', ''); }))];\nconst emails = [...new Set(markdown.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [])];\nconst budgets = markdown.match(/(\\d{1,3}(?:[\\s\\.,]?\\d{3})*)\\s*(?:руб|₽|тыс|к\\b|млн)/gi) || [];\nconst description = markdown.slice(0, 500);\nconst contactString = phones.join('') + telegrams.join('') + emails.join('');\nconst dedup_hash = generateHash(contactString + title);\n\nreturn [{ json: {\n  lead_id: 'lead_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10),\n  job_id: jobId, source_url: sourceUrl, source_platform: sourcePlatform,\n  title, description, contact_phone: phones.join('; '), contact_tg: telegrams.join('; '),\n  contact_email: emails.join('; '), contact_name: '', region: '', budget: budgets.join('; '),\n  phones_arr: phones, telegrams_arr: telegrams, emails_arr: emails, dedup_hash,\n  scraped_at: new Date().toISOString(), status: 'new', total_score: 0\n}}];"
       },
       "name": "Extract Contacts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1392,
-        1168
-      ],
+      "position": [1392, 1168],
       "id": "f4cbec29-a442-4695-be4d-fea7f00bc07a"
     },
     {
       "parameters": {
-        "jsCode": "// TEMP Diag Contacts — records contacts extracted\n// Passthrough: all items pass unchanged to Has Contacts?.\nreturn $input.all();"
+        "jsCode": "// TEMP Diag Contacts V2 — records contacts extraction results to accumulator\nconst items = $input.all();\n(function() {\n  try {\n    const jobId = (items && items.length > 0 && items[0].json) ? items[0].json.job_id : '';\n    if (!jobId) return;\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    if (sd[diagKey]) {\n      sd[diagKey].extractContactsOutput = (sd[diagKey].extractContactsOutput || 0) + items.length;\n      var hasContacts = 0;\n      for (var i = 0; i < items.length; i++) {\n        var j = items[i].json || {};\n        if ((j.phones_arr && j.phones_arr.length) || (j.telegrams_arr && j.telegrams_arr.length) || (j.emails_arr && j.emails_arr.length)) {\n          hasContacts++;\n        }\n      }\n      sd[diagKey].contactPresenceCount = (sd[diagKey].contactPresenceCount || 0) + hasContacts;\n      sd[diagKey].ts = Date.now();\n    }\n  } catch(e) { /* fail-open */ }\n})();\nreturn items;"
       },
       "name": "TEMP Diag Contacts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1504,
-        1168
-      ],
+      "position": [1504, 1168],
       "id": "e0000003-0003-4000-8000-000000000003"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
           "conditions": [
             {
               "id": "cc",
-              "operator": {
-                "type": "number",
-                "operation": "gt"
-              },
+              "operator": { "type": "number", "operation": "gt" },
               "leftValue": "={{ (($json.phones_arr || []).length + ($json.telegrams_arr || []).length + ($json.emails_arr || []).length) }}",
               "rightValue": 0
             },
@@ -384,11 +269,7 @@
               "id": "hasurl",
               "leftValue": "={{ $json.source_url }}",
               "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
             }
           ],
           "combinator": "or"
@@ -399,19 +280,12 @@
       "name": "Has Contacts?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        1616,
-        1168
-      ],
+      "position": [1616, 1168],
       "id": "79eb7654-dfc9-4093-bacc-d2791b335d60"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "O3Ke6qflNx8CL1x7",
-          "mode": "id"
-        },
+        "workflowId": { "__rl": true, "value": "O3Ke6qflNx8CL1x7", "mode": "id" },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
@@ -422,36 +296,23 @@
             "threshold": 0.92
           }
         },
-        "options": {
-          "waitForSubWorkflow": true
-        }
+        "options": { "waitForSubWorkflow": true }
       },
       "name": "Check Duplicate",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [
-        1840,
-        1072
-      ],
+      "position": [1840, 1072],
       "id": "57d43e59-deec-49aa-8c31-878e38d14f57",
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 1
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 1 },
           "conditions": [
             {
               "id": "dc",
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              },
+              "operator": { "type": "number", "operation": "equals" },
               "leftValue": "={{ ($json.count || $json.matches?.length || 0) }}",
               "rightValue": 0
             }
@@ -463,19 +324,12 @@
       "name": "Is Not Duplicate?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        2048,
-        1072
-      ],
+      "position": [2048, 1072],
       "id": "10228684-d0a9-439a-96a0-1e339736bc9b"
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "O3Ke6qflNx8CL1x7",
-          "mode": "id"
-        },
+        "workflowId": { "__rl": true, "value": "O3Ke6qflNx8CL1x7", "mode": "id" },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
@@ -485,33 +339,20 @@
             "metadata": "={{ { lead_id: $('Extract Contacts').first().json.lead_id, job_id: $('Extract Contacts').first().json.job_id, source_url: $('Extract Contacts').first().json.source_url, source_platform: $('Extract Contacts').first().json.source_platform } }}"
           }
         },
-        "options": {
-          "waitForSubWorkflow": true
-        }
+        "options": { "waitForSubWorkflow": true }
       },
       "name": "Upsert to Pinecone",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [
-        2272,
-        960
-      ],
+      "position": [2272, 960],
       "id": "05e985a5-ea60-403f-9ff7-9913da068bff",
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "leads",
-          "mode": "name"
-        },
+        "documentId": { "__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "leads", "mode": "name" },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -534,220 +375,29 @@
           },
           "matchingColumns": [],
           "schema": [
-            {
-              "id": "lead_id",
-              "displayName": "lead_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "job_id",
-              "displayName": "job_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_platform",
-              "displayName": "source_platform",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_url",
-              "displayName": "source_url",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "title",
-              "displayName": "title",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "description",
-              "displayName": "description",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "contact_phone",
-              "displayName": "contact_phone",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "contact_tg",
-              "displayName": "contact_tg",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "contact_email",
-              "displayName": "contact_email",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "contact_name",
-              "displayName": "contact_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "region",
-              "displayName": "region",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "budget",
-              "displayName": "budget",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "posted_at",
-              "displayName": "posted_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "scraped_at",
-              "displayName": "scraped_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "dedup_hash",
-              "displayName": "dedup_hash",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "pinecone_id",
-              "displayName": "pinecone_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "relevance_score",
-              "displayName": "relevance_score",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "freshness_score",
-              "displayName": "freshness_score",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "solvency_score",
-              "displayName": "solvency_score",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "contactability_score",
-              "displayName": "contactability_score",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "total_score",
-              "displayName": "total_score",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "why_relevant",
-              "displayName": "why_relevant",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "status",
-              "displayName": "status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            }
+            {"id": "lead_id", "displayName": "lead_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "source_platform", "displayName": "source_platform", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "source_url", "displayName": "source_url", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "title", "displayName": "title", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "description", "displayName": "description", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "contact_phone", "displayName": "contact_phone", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "contact_tg", "displayName": "contact_tg", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "contact_email", "displayName": "contact_email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "contact_name", "displayName": "contact_name", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "region", "displayName": "region", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "budget", "displayName": "budget", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "posted_at", "displayName": "posted_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "scraped_at", "displayName": "scraped_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "dedup_hash", "displayName": "dedup_hash", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "pinecone_id", "displayName": "pinecone_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "relevance_score", "displayName": "relevance_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "freshness_score", "displayName": "freshness_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "solvency_score", "displayName": "solvency_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "contactability_score", "displayName": "contactability_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "total_score", "displayName": "total_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "why_relevant", "displayName": "why_relevant", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
@@ -757,29 +407,18 @@
       "name": "Append Lead",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        2496,
-        960
-      ],
+      "position": [2496, 960],
       "id": "ae97b865-1992-478e-bdfc-1d6f36d3041d",
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "dUZaJdXfgHXwnmNN",
-          "name": "Google Sheets account"
-        }
-      }
+      "credentials": { "googleSheetsOAuth2Api": { "id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account" } }
     },
     {
       "parameters": {
-        "jsCode": "// TEMP Diag Append Success — records successful Google Sheets appends\n// Passthrough: all items pass unchanged to Back to URL Loop.\nreturn $input.all();"
+        "jsCode": "// TEMP Diag Append Success V2 — records successful Google Sheets appends to accumulator\nconst items = $input.all();\n(function() {\n  try {\n    const jobId = (items && items.length > 0 && items[0].json) ? items[0].json.job_id : '';\n    if (!jobId) return;\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    if (sd[diagKey]) {\n      sd[diagKey].appendLeadSuccessOutput = (sd[diagKey].appendLeadSuccessOutput || 0) + items.length;\n      sd[diagKey].ts = Date.now();\n    }\n  } catch(e) { /* fail-open */ }\n})();\nreturn items;"
       },
       "name": "TEMP Diag Append Success",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2608,
-        1072
-      ],
+      "position": [2608, 1072],
       "id": "e0000004-0004-4000-8000-000000000004"
     },
     {
@@ -787,377 +426,81 @@
       "name": "Back to URL Loop",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [
-        2720,
-        1072
-      ],
+      "position": [2720, 1072],
       "id": "8d6606ba-219b-4fcf-bc50-7841e140a712"
     },
     {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "1",
-              "name": "status",
-              "value": "skipped_duplicate",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
+      "parameters": { "assignments": { "assignments": [{"id": "1", "name": "status", "value": "skipped_duplicate", "type": "string"}] }, "options": {} },
       "name": "Skip Duplicate",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        2272,
-        1168
-      ],
+      "position": [2272, 1168],
       "id": "0e0ecb07-affa-4d04-8488-59ea27ad8cd8"
     },
     {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "1",
-              "name": "status",
-              "value": "skipped_no_contacts",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
+      "parameters": { "assignments": { "assignments": [{"id": "1", "name": "status", "value": "skipped_no_contacts", "type": "string"}] }, "options": {} },
       "name": "Skip No Contacts",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        1840,
-        1264
-      ],
+      "position": [1840, 1264],
       "id": "e67f2add-deec-4b51-ad84-d5c8cd564470"
     }
   ],
   "connections": {
-    "Trigger": {
-      "main": [
-        [
-          {
-            "node": "Build Query Matrix",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Query Matrix": {
-      "main": [
-        [
-          {
-            "node": "Loop Queries",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    "Trigger": { "main": [[{"node": "Build Query Matrix", "type": "main", "index": 0}]] },
+    "Build Query Matrix": { "main": [[{"node": "Loop Queries", "type": "main", "index": 0}]] },
     "Loop Queries": {
       "main": [
-        [
-          {
-            "node": "TEMP Finalize WF2 Funnel",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Serper Search",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "TEMP Finalize WF2 Funnel", "type": "main", "index": 0}],
+        [{"node": "Serper Search", "type": "main", "index": 0}]
       ]
     },
-    "TEMP Finalize WF2 Funnel": {
-      "main": [
-        [
-          {
-            "node": "Wait Before Analyst",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    "TEMP Finalize WF2 Funnel": { "main": [[{"node": "Wait Before Analyst", "type": "main", "index": 0}]] },
     "Wait Before Analyst": {
       "main": [
-        [
-          {
-            "node": "Run Analyst",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "TEMP Gate WF2 Funnel Scope",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Run Analyst", "type": "main", "index": 0}, {"node": "TEMP Gate WF2 Funnel Scope", "type": "main", "index": 0}]
       ]
     },
-    "TEMP Gate WF2 Funnel Scope": {
-      "main": [
-        [
-          {
-            "node": "TEMP Emit WF2 Funnel",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [],
-        []
-      ]
-    },
-    "Serper Search": {
-      "main": [
-        [
-          {
-            "node": "Extract URLs",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract URLs": {
-      "main": [
-        [
-          {
-            "node": "Classify Private Candidates",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Classify Private Candidates": {
-      "main": [
-        [
-          {
-            "node": "Filter Empty",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    "TEMP Gate WF2 Funnel Scope": { "main": [[{"node": "TEMP Emit WF2 Funnel", "type": "main", "index": 0}], [], []] },
+    "Serper Search": { "main": [[{"node": "Extract URLs", "type": "main", "index": 0}]] },
+    "Extract URLs": { "main": [[{"node": "Classify Private Candidates", "type": "main", "index": 0}]] },
+    "Classify Private Candidates": { "main": [[{"node": "Filter Empty", "type": "main", "index": 0}]] },
     "Filter Empty": {
       "main": [
-        [
-          {
-            "node": "TEMP Diag Filter Pass",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Loop Queries",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "TEMP Diag Filter Pass", "type": "main", "index": 0}],
+        [{"node": "Loop Queries", "type": "main", "index": 0}]
       ]
     },
-    "TEMP Diag Filter Pass": {
-      "main": [
-        [
-          {
-            "node": "Loop URLs",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    "TEMP Diag Filter Pass": { "main": [[{"node": "Loop URLs", "type": "main", "index": 0}]] },
     "Loop URLs": {
       "main": [
-        [
-          {
-            "node": "Loop Queries",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "TEMP Diag URL Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Loop Queries", "type": "main", "index": 0}],
+        [{"node": "TEMP Diag URL Loop", "type": "main", "index": 0}]
       ]
     },
-    "TEMP Diag URL Loop": {
-      "main": [
-        [
-          {
-            "node": "Firecrawl Scrape",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Firecrawl Scrape": {
-      "main": [
-        [
-          {
-            "node": "Extract Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Contacts": {
-      "main": [
-        [
-          {
-            "node": "TEMP Diag Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "TEMP Diag Contacts": {
-      "main": [
-        [
-          {
-            "node": "Has Contacts?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    "TEMP Diag URL Loop": { "main": [[{"node": "Firecrawl Scrape", "type": "main", "index": 0}]] },
+    "Firecrawl Scrape": { "main": [[{"node": "Extract Contacts", "type": "main", "index": 0}]] },
+    "Extract Contacts": { "main": [[{"node": "TEMP Diag Contacts", "type": "main", "index": 0}]] },
+    "TEMP Diag Contacts": { "main": [[{"node": "Has Contacts?", "type": "main", "index": 0}]] },
     "Has Contacts?": {
       "main": [
-        [
-          {
-            "node": "Check Duplicate",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Skip No Contacts",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Check Duplicate", "type": "main", "index": 0}],
+        [{"node": "Skip No Contacts", "type": "main", "index": 0}]
       ]
     },
-    "Check Duplicate": {
-      "main": [
-        [
-          {
-            "node": "Is Not Duplicate?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    "Check Duplicate": { "main": [[{"node": "Is Not Duplicate?", "type": "main", "index": 0}]] },
     "Is Not Duplicate?": {
       "main": [
-        [
-          {
-            "node": "Upsert to Pinecone",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Skip Duplicate",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Upsert to Pinecone", "type": "main", "index": 0}],
+        [{"node": "Skip Duplicate", "type": "main", "index": 0}]
       ]
     },
-    "Upsert to Pinecone": {
-      "main": [
-        [
-          {
-            "node": "Append Lead",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Append Lead": {
-      "main": [
-        [
-          {
-            "node": "TEMP Diag Append Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "TEMP Diag Append Success": {
-      "main": [
-        [
-          {
-            "node": "Back to URL Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Back to URL Loop": {
-      "main": [
-        [
-          {
-            "node": "Loop URLs",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Skip Duplicate": {
-      "main": [
-        [
-          {
-            "node": "Back to URL Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Skip No Contacts": {
-      "main": [
-        [
-          {
-            "node": "Back to URL Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Upsert to Pinecone": { "main": [[{"node": "Append Lead", "type": "main", "index": 0}]] },
+    "Append Lead": { "main": [[{"node": "TEMP Diag Append Success", "type": "main", "index": 0}]] },
+    "TEMP Diag Append Success": { "main": [[{"node": "Back to URL Loop", "type": "main", "index": 0}]] },
+    "Back to URL Loop": { "main": [[{"node": "Loop URLs", "type": "main", "index": 0}]] },
+    "Skip Duplicate": { "main": [[{"node": "Back to URL Loop", "type": "main", "index": 0}]] },
+    "Skip No Contacts": { "main": [[{"node": "Back to URL Loop", "type": "main", "index": 0}]] }
   },
   "settings": {},
   "pinData": {},

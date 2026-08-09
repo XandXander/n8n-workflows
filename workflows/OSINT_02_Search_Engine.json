@@ -3,9 +3,7 @@
   "name": "OSINT_02_Search_Engine",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
+      "parameters": { "inputSource": "passthrough" },
       "name": "Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -32,7 +30,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// TEMP Finalize WF2 Funnel V2 — reads transient accumulator, builds compact diagnostic\n// Runs when Loop Queries completes (output 0 = DONE).\n// Fail-open: any error returns original items unchanged with emit=false.\n\ntry {\n  const normalize = (value) => String(value ?? '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[‐‑‒–—−]/g, '-');\n  const items = $input.all();\n  const firstItem = (items && items.length > 0) ? (items[0].json || {}) : {};\n\n  let intent = '', service = '', region = '', jobId = '';\n  try {\n    const triggerData = $('Trigger').first().json;\n    intent = triggerData.intent || '';\n    jobId = triggerData.job_id || '';\n    let entities = triggerData.entities;\n    let attempts = 0;\n    while (typeof entities === 'string' && attempts < 3) {\n      try { entities = JSON.parse(entities); } catch(e) { entities = {}; break; }\n      attempts++;\n    }\n    entities = entities || {};\n    service = entities.service || '';\n    region = entities.region || '';\n  } catch(e) {}\n\n  if (!service || !region) {\n    service = firstItem.service || service;\n    region = firstItem.region || region;\n  }\n  if (!jobId) jobId = firstItem.job_id || '';\n\n  intent = normalize(intent);\n  service = normalize(service);\n  region = normalize(region);\n\n  const inScope = intent === 'search_private' && service.includes('вентиляц') && (/(^|[^а-яa-z0-9])спб([^а-яa-z0-9]|$)/u.test(region) || region.includes('петербург'));\n\n  let emit = false;\n  let diagMessage = '';\n\n  if (inScope) {\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    const acc = sd[diagKey];\n\n    if (acc) {\n      const lines = ['TEMP WF2 FUNNEL DIAGNOSTIC V2'];\n      lines.push('Job: ' + jobId);\n      lines.push('Intent: ' + intent + ' | Svc: ' + service + ' | Region: ' + region);\n      lines.push('Queries: ' + (acc.queryCount || 0));\n      if (acc.queriesByPlatform) {\n        const plat = Object.entries(acc.queriesByPlatform).map(function(e) { return e[0] + ':' + e[1]; }).join(' ');\n        lines.push('ByPlatform: ' + plat);\n      }\n      lines.push('SerpOrganic: ' + (acc.serperOrganicTotal || 0) + ' | URL: ' + (acc.extractedUrlTotal || 0));\n      lines.push('ClassIn: ' + (acc.classificationInput || 0) + ' D:' + (acc.demandCount || 0) + ' S:' + (acc.supplyCount || 0) + ' A:' + (acc.ambiguousCount || 0));\n      lines.push('Keep: ' + (acc.keepCount || 0) + ' | Reject: ' + (acc.rejectCount || 0));\n      if (acc.reasonCodes) lines.push('Codes: ' + JSON.stringify(acc.reasonCodes));\n      lines.push('FltPass: ' + (acc.filterEmptyPassed || 0) + ' | LoopUrl: ' + (acc.loopUrlsEntered || 0));\n      lines.push('FCAtt: ' + (acc.firecrawlAttempted || 0) + ' | FCUsable: ' + (acc.firecrawlUsable || 0));\n      lines.push('CntOut: ' + (acc.extractContactsOutput || 0) + ' | WithCnt: ' + (acc.contactPresenceCount || 0));\n      lines.push('AppendOK: ' + (acc.appendLeadSuccessOutput || 0));\n\n      diagMessage = lines.join('\\n');\n      if (diagMessage.length > 3500) diagMessage = diagMessage.slice(0, 3500);\n\n      delete sd[diagKey];\n      emit = true;\n    } else {\n      diagMessage = 'TEMP WF2 FUNNEL DIAGNOSTIC V2\\nJob: ' + jobId + '\\nStatus: INSTRUMENTATION STATE MISSING';\n      emit = true;\n    }\n  }\n\n  return items.map(function(item) {\n    return { json: Object.assign({}, item.json, { _temp_wf2_diag_v1_emit: emit, _temp_wf2_diag_v1_message: diagMessage }) };\n  });\n} catch(e) {\n  return $input.all();\n}"
+        "jsCode": "// TEMP Finalize WF2 Funnel V2 — reads transient accumulator, builds compact diagnostic\n// Runs when Loop Queries completes (output 0 = DONE).\n// Fail-open: any error returns original items unchanged with emit=false.\n\ntry {\n  const normalize = (value) => String(value ?? '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[‐‑‒–—−]/g, '-');\n  const items = $input.all();\n  const firstItem = (items && items.length > 0) ? (items[0].json || {}) : {};\n\n  let intent = '', service = '', region = '', jobId = '';\n  try {\n    const triggerData = $('Trigger').first().json;\n    intent = triggerData.intent || '';\n    jobId = triggerData.job_id || '';\n    let entities = triggerData.entities;\n    let attempts = 0;\n    while (typeof entities === 'string' && attempts < 3) {\n      try { entities = JSON.parse(entities); } catch(e) { entities = {}; break; }\n      attempts++;\n    }\n    entities = entities || {};\n    service = entities.service || '';\n    region = entities.region || '';\n  } catch(e) {}\n\n  if (!service || !region) {\n    service = firstItem.service || service;\n    region = firstItem.region || region;\n  }\n  if (!jobId) jobId = firstItem.job_id || '';\n\n  intent = normalize(intent);\n  service = normalize(service);\n  region = normalize(region);\n\n  const inScope = intent === 'search_private' && service.includes('вентиляц') && (/(^|[^а-яa-z0-9])спб([^а-яa-z0-9]|$)/u.test(region) || region.includes('петербург'));\n\n  let emit = false;\n  let diagMessage = '';\n\n  if (inScope) {\n    const diagKey = 'wf2_diag_v2_' + jobId;\n    const sd = $getWorkflowStaticData('global');\n    const acc = sd[diagKey];\n\n    if (acc) {\n      const lines = ['TEMP WF2 FUNNEL DIAGNOSTIC V2'];\n      lines.push('Job: ' + jobId);\n      lines.push('Intent: ' + intent + ' | Svc: ' + service + ' | Region: ' + region);\n      lines.push('Queries: ' + (acc.queryCount || 0));\n      if (acc.queriesByPlatform) {\n        const plat = Object.entries(acc.queriesByPlatform).map(function(e) { return e[0] + ':' + e[1]; }).join(' ');\n        lines.push('ByPlatform: ' + plat);\n      }\n      lines.push('SerpOrganic: ' + (acc.serperOrganicTotal || 0) + ' | URL: ' + (acc.extractedUrlTotal || 0));\n      lines.push('ClassIn: ' + (acc.classificationInput || 0) + ' D:' + (acc.demandCount || 0) + ' S:' + (acc.supplyCount || 0) + ' A:' + (acc.ambiguousCount || 0));\n      lines.push('Keep: ' + (acc.keepCount || 0) + ' | Reject: ' + (acc.rejectCount || 0));\n      if (acc.reasonCodes) lines.push('Codes: ' + JSON.stringify(acc.reasonCodes));\n      lines.push('FltPass: ' + (acc.filterEmptyPassed || 0) + ' | LoopUrl: ' + (acc.loopUrlsEntered || 0));\n      lines.push('FCAtt: ' + (acc.firecrawlAttempted || 0) + ' | FCUsable: ' + (acc.firecrawlUsable || 0));\n      lines.push('CntOut: ' + (acc.extractContactsOutput || 0) + ' | WithCnt: ' + (acc.contactPresenceCount || 0));\n      lines.push('AppendOK: ' + (acc.appendLeadSuccessOutput || 0));\n\n      diagMessage = lines.join('\\n');\n      if (diagMessage.length > 3500) diagMessage = diagMessage.slice(0, 3500);\n\n      delete sd[diagKey];\n      emit = true;\n    } else {\n      diagMessage = 'TEMP WF2 FUNNEL DIAGNOSTIC V2\\nJob: ' + jobId + '\\nStatus: INSTRUMENTATION STATE MISSING';\n      emit = true;\n    }\n  }\n\n  return items.map(function(item, idx) {\n    if (idx === 0) {\n      return { json: Object.assign({}, item.json, { _temp_wf2_diag_v1_emit: emit, _temp_wf2_diag_v1_message: diagMessage }) };\n    }\n    return { json: Object.assign({}, item.json, { _temp_wf2_diag_v1_emit: false, _temp_wf2_diag_v1_message: '' }) };\n  });\n} catch(e) {\n  return $input.all();\n}"
       },
       "name": "TEMP Finalize WF2 Funnel",
       "type": "n8n-nodes-base.code",
@@ -158,25 +156,17 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
           "conditions": [
             {
-              "id": "c1",
-              "operator": { "type": "boolean", "operation": "notEqual" },
-              "leftValue": "={{ $json.skip === true }}",
-              "rightValue": "={{ true }}"
-            },
-            {
-              "id": "url_cond",
-              "leftValue": "={{ $json.url }}",
-              "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "id": "pass",
+              "leftValue": "={{ $json.skip !== true && (($json.url || '').toString().trim().length > 0) }}",
+              "rightValue": "={{ true }}",
+              "operator": { "type": "boolean", "operation": "equals" }
             }
           ],
           "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
+        }
       },
       "name": "Filter Empty",
       "type": "n8n-nodes-base.if",

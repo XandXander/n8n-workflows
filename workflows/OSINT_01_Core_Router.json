@@ -106,6 +106,151 @@
     },
     {
       "parameters": {
+        "jsCode": "const v=$input.first().json||{};\nreturn [{json:{\n  job_id:v.job_id||('job_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10)),\n  created_at:new Date().toISOString(),\n  started_at:new Date().toISOString(),\n  source:v.source||'telegram',\n  origin_channel:v.origin_channel||'telegram',\n  user_id:v.user_id||null,\n  chat_id:v.chat_id||null,\n  requester_email:v.requester_email||null,\n  raw_text:v.raw_text||'',\n  intent:'voice',\n  entities:{},\n  confidence:0,\n  parse_error:null,\n  requested_count:null,\n  requested_count_ambiguous:false,\n  route_action:'unsupported',\n  error_code:'VOICE_STT_CONTAINED',\n  status:'processing'\n}}];"
+      },
+      "name": "Voice Contained",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5792, 2080],
+      "id": "v01ce0c0-0001-4c00-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "jobs", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "created_at": "={{ $json.created_at }}",
+            "started_at": "={{ $json.started_at }}",
+            "source": "={{ $json.source }}",
+            "origin_channel": "={{ $json.origin_channel }}",
+            "user_id": "={{ $json.user_id }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "requester_email": "={{ $json.requester_email }}",
+            "raw_text": "={{ $json.raw_text }}",
+            "intent": "={{ $json.intent }}",
+            "entities": "={{ JSON.stringify($json.entities) }}",
+            "confidence": "={{ $json.confidence }}",
+            "requested_count": "={{ $json.requested_count == null ? '' : $json.requested_count }}",
+            "status": "={{ $json.status }}",
+            "error_code": "={{ $json.error_code || '' }}",
+            "route_action": "={{ $json.route_action }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "created_at", "displayName": "created_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "started_at", "displayName": "started_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "source", "displayName": "source", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "origin_channel", "displayName": "origin_channel", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "user_id", "displayName": "user_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "chat_id", "displayName": "chat_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "requester_email", "displayName": "requester_email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "raw_text", "displayName": "raw_text", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "intent", "displayName": "intent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "entities", "displayName": "entities", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "confidence", "displayName": "confidence", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "requested_count", "displayName": "requested_count", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "error_code", "displayName": "error_code", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "route_action", "displayName": "route_action", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Voice Job Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [6016, 2080],
+      "id": "v01ce0c0-0002-4c00-8000-000000000002",
+      "credentials": { "googleSheetsOAuth2Api": { "id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "id": "vtg", "leftValue": "={{ $json.origin_channel }}", "rightValue": "telegram", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Voice Is Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [6240, 2080],
+      "id": "v01ce0c0-0003-4c00-8000-000000000003"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=🎙️ Голосовые сообщения временно недоступны. Отправьте, пожалуйста, текстовый запрос с конкретным городом.",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "name": "Voice TG Notice",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [6464, 1984],
+      "id": "v01ce0c0-0004-4c00-8000-000000000004",
+      "credentials": { "telegramApi": { "id": "Xw7qHzoLSGuJnpZr", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "fromEmail": "xander1s@yandex.ru",
+        "toEmail": "={{ $json.requester_email }}",
+        "subject": "=OSINT-AI: голосовые запросы недоступны",
+        "text": "=Голосовые сообщения временно недоступны. Отправьте текстовый запрос с конкретным городом.",
+        "options": {}
+      },
+      "name": "Voice Email Notice",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [6464, 2176],
+      "id": "v01ce0c0-0005-4c00-8000-000000000005",
+      "credentials": { "smtp": { "id": "H2ru5T06SuHhoIra", "name": "Yandex SMTP" } }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "jobs" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $('Voice Contained').first().json.job_id }}",
+            "status": "unsupported",
+            "finished_at": "={{ new Date().toISOString() }}",
+            "error_code": "={{ $('Voice Contained').first().json.error_code }}",
+            "row_number": 0
+          },
+          "matchingColumns": ["job_id"],
+          "schema": [
+            { "id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "finished_at", "displayName": "finished_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "error_code", "displayName": "error_code", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "row_number", "displayName": "row_number", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "readOnly": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Update Voice Job Unsupported",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [6688, 2080],
+      "id": "v01ce0c0-0006-4c00-8000-000000000006",
+      "credentials": { "googleSheetsOAuth2Api": { "id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 1 },
           "conditions": [
@@ -131,7 +276,7 @@
         "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }, { "name": "Connection", "value": "keep-alive" }] },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'deepseek-v4-flash', temperature: 0.2, max_tokens: 4096, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'You must respond with a JSON object. Ты — классификатор запросов OSINT-платформы. Определи intent (намерение) и извлеки entities (сущности) из запроса пользователя.\\n\\nДОСТУПНЫЕ INTENT:\\n- search_private — поиск частных заявок/лидов (Авито, Юла, Telegram, форумы)\\n- search_b2b — поиск B2B-заказчиков/клиентов\\n- company_analysis — анализ компании по названию/ИНН/сайту\\n- tender_search — поиск тендеров и госзакупок\\n- site_analysis — анализ сайта/URL\\n- deep_osint — комплексный OSINT-поиск\\n\\nПРАВИЛА:\\n- «найди заявки», «найди частные» → search_private\\n- «найди компании», «собери контакты» → company_analysis\\n- «тендер», «закупки», «госзаказ» → tender_search\\n- URL + анализ → site_analysis\\n- B2B, бизнес → search_b2b\\n\\nENTITIES (НИКОГДА не null):\\n- service: услуга из запроса\\n- region: город или «Россия»\\n- keywords: 2-5 слов\\n- budget_min/budget_max: числа или null\\n- target_url/inn/name: или null\\n\\nCONFIDENCE: 0.9+ чёткий запрос, 0.5-0.8 неоднозначный.\\n\\nПРИМЕР: «Найди 10 частных заявок на создание сайтов» → { \"intent\": \"search_private\", \"entities\": { \"service\": \"создание сайтов\", \"region\": \"Россия\", \"keywords\": [\"создание сайтов\", \"разработка\"], \"budget_min\": null, \"budget_max\": null, \"target_url\": null, \"target_inn\": null, \"target_name\": null }, \"confidence\": 0.95 }' }, { role: 'user', content: ($json !== undefined ? ($json.raw_text || JSON.stringify($json)).slice(0, 4000) : '{}') } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'deepseek-v4-flash', temperature: 0.2, max_tokens: 4096, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'You must respond with a JSON object. Ты — классификатор запросов OSINT-платформы. Определи intent (намерение) и извлеки entities (сущности) из запроса пользователя.\\n\\nДОСТУПНЫЕ INTENT:\\n- search_private — поиск частных заявок/лидов (Авито, Юла, Telegram, форумы)\\n- search_b2b — поиск B2B-заказчиков/клиентов\\n- company_analysis — анализ компании по названию/ИНН/сайту\\n- tender_search — поиск тендеров и госзакупок\\n- site_analysis — анализ сайта/URL\\n- deep_osint — комплексный OSINT-поиск\\n\\nПРАВИЛА:\\n- «найди заявки», «найди частные» → search_private\\n- «найди компании», «собери контакты» → company_analysis\\n- «тендер», «закупки», «госзаказ» → tender_search\\n- URL + анализ → site_analysis\\n- B2B, бизнес → search_b2b\\n\\nENTITIES:\\n- service: услуга из запроса (если нет — пустая строка \"\")\\n- region: КОНКРЕТНЫЙ город/регион, явно названный пользователем (например «Пермь», «Москва», «Санкт-Петербург», «Нижний Новгород», «Краснодарский край»). Если пользователь НЕ указал конкретную локацию — верни \"\" (пустую строку). НИКОГДА не подставляй «Россия», «РФ», «вся Россия», «по всей России» и не придумывай локацию.\\n- keywords: 2-5 слов\\n- budget_min/budget_max: числа или null\\n- target_url/inn/name: или null\\n\\nCONFIDENCE: 0.9+ чёткий запрос, 0.5-0.8 неоднозначный.\\n\\nПРИМЕР 1 (явная локация): «Найди 10 частных заявок на создание сайтов в Перми» → { \"intent\": \"search_private\", \"entities\": { \"service\": \"создание сайтов\", \"region\": \"Пермь\", \"keywords\": [\"создание сайтов\", \"разработка\"], \"budget_min\": null, \"budget_max\": null, \"target_url\": null, \"target_inn\": null, \"target_name\": null }, \"confidence\": 0.95 }\\n\\nПРИМЕР 2 (без локации): «Найди 10 частных заявок на создание сайтов» → { \"intent\": \"search_private\", \"entities\": { \"service\": \"создание сайтов\", \"region\": \"\", \"keywords\": [\"создание сайтов\", \"разработка\"], \"budget_min\": null, \"budget_max\": null, \"target_url\": null, \"target_inn\": null, \"target_name\": null }, \"confidence\": 0.95 }' }, { role: 'user', content: ($json !== undefined ? ($json.raw_text || JSON.stringify($json)).slice(0, 4000) : '{}') } ] }) }}",
         "options": { "timeout": 45000 }
       },
       "name": "DeepSeek Intent Classifier",
@@ -171,7 +316,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item=$input.first()?.json||{};\nconst intent=item.intent;\nconst entities=item.entities||{};\nconst region=(entities.region!=null)?String(entities.region).trim():'';\nconst RECOGNIZED=['search_private','search_b2b','company_analysis','tender_search','site_analysis','deep_osint'];\nconst CONTAINED=['search_b2b','company_analysis','tender_search','site_analysis','deep_osint'];\nlet route_action;\nlet error_code=null;\nif(item.requested_count_ambiguous===true){route_action='failed';error_code='AMBIGUOUS_REQUESTED_COUNT';}\nelse if(!RECOGNIZED.includes(intent)){route_action='unsupported';error_code='UNSUPPORTED_INTENT';}\nelse if(CONTAINED.includes(intent)){route_action='unsupported';error_code='CONTAINED_ROUTE';}\nelse if(intent==='search_private'){\n  if(!region){route_action='failed';error_code='MISSING_REGION';}\n  else{route_action='search_private';}\n}\nelse{route_action='unsupported';error_code='UNSUPPORTED_INTENT';}\nconst out=Object.assign({},item,{route_action:route_action,error_code:error_code,contract_ok:(route_action==='search_private')});\nreturn [{json:out}];"
+        "jsCode": "const item=$input.first()?.json||{};\nconst intent=item.intent;\nconst entities=item.entities||{};\nconst region=(entities.region!=null)?String(entities.region).trim():'';\nfunction normRegion(r){return String(r||'').toLowerCase().replace(/ё/g,'е').replace(/ +/g,' ').trim();}\nfunction isGenericNationwide(r){const n=normRegion(r);if(!n)return false;return /^(россия|рф|российская федерация|вся россия|по всей россии|вся рф|по всей рф|по россии|российская)$/.test(n);}\nconst RECOGNIZED=['search_private','search_b2b','company_analysis','tender_search','site_analysis','deep_osint'];\nconst CONTAINED=['search_b2b','company_analysis','tender_search','site_analysis','deep_osint'];\nlet route_action;\nlet error_code=null;\nif(item.requested_count_ambiguous===true){route_action='failed';error_code='AMBIGUOUS_REQUESTED_COUNT';}\nelse if(!RECOGNIZED.includes(intent)){route_action='unsupported';error_code='UNSUPPORTED_INTENT';}\nelse if(CONTAINED.includes(intent)){route_action='unsupported';error_code='CONTAINED_ROUTE';}\nelse if(intent==='search_private'){\n  if(!region){route_action='failed';error_code='MISSING_REGION';}\n  else if(isGenericNationwide(region)){route_action='failed';error_code='GENERIC_REGION_NOT_SPECIFIC';}\n  else{route_action='search_private';}\n}\nelse{route_action='unsupported';error_code='UNSUPPORTED_INTENT';}\nconst out=Object.assign({},item,{route_action:route_action,error_code:error_code,contract_ok:(route_action==='search_private')});\nreturn [{json:out}];"
       },
       "name": "Validate Contract",
       "type": "n8n-nodes-base.code",
@@ -186,6 +331,14 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [7296, 2016]
+    },
+    {
+      "parameters": {},
+      "name": "Merge To Job Row",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [7424, 1888],
+      "id": "m01ce0c0-0001-4c00-8000-000000000001"
     },
     {
       "parameters": {
@@ -314,6 +467,112 @@
       "position": [8000, 1584],
       "id": "aaffdc3e-b7d5-47de-8676-d7d11a87f732",
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item=$input.first()?.json||{};\nconst job=$('Parse Intent').first().json||{};\nconst s=(item.status!=null)?String(item.status).toLowerCase():'';\nconst isSuccess=(s==='done'||s==='no_results');\nconst hasError=!!(item.error||item.errorMessage||item.executionError);\nconst failed=hasError||!isSuccess;\nreturn [{json:Object.assign({},job,{route_action:failed?'failed':'search_private_complete',error_code:failed?'CHILD_WORKFLOW_FAILED':null})}];"
+      },
+      "name": "Check Child Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [8224, 1584],
+      "id": "c01ce0c0-0001-4c00-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "id": "cf", "leftValue": "={{ $json.route_action }}", "rightValue": "failed", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Child Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [8448, 1584],
+      "id": "c01ce0c0-0002-4c00-8000-000000000002"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "id": "cftg", "leftValue": "={{ $json.origin_channel }}", "rightValue": "telegram", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Child Failed Is Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [8672, 1584],
+      "id": "c01ce0c0-0003-4c00-8000-000000000003"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=❌ Не удалось обработать запрос ({{ $json.error_code }}).",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "name": "Child Failed TG Notice",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [8896, 1488],
+      "id": "c01ce0c0-0004-4c00-8000-000000000004",
+      "credentials": { "telegramApi": { "id": "Xw7qHzoLSGuJnpZr", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "fromEmail": "xander1s@yandex.ru",
+        "toEmail": "={{ $json.requester_email }}",
+        "subject": "=OSINT-AI: ошибка обработки запроса",
+        "text": "=Не удалось обработать запрос ({{ $json.error_code }}).",
+        "options": {}
+      },
+      "name": "Child Failed Email Notice",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [8896, 1680],
+      "id": "c01ce0c0-0005-4c00-8000-000000000005",
+      "credentials": { "smtp": { "id": "H2ru5T06SuHhoIra", "name": "Yandex SMTP" } }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": { "__rl": true, "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA", "mode": "id" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "jobs" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $('Parse Intent').first().json.job_id }}",
+            "status": "failed",
+            "finished_at": "={{ new Date().toISOString() }}",
+            "error_code": "={{ $('Check Child Result').first().json.error_code }}",
+            "row_number": 0
+          },
+          "matchingColumns": ["job_id"],
+          "schema": [
+            { "id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "finished_at", "displayName": "finished_at", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "error_code", "displayName": "error_code", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "row_number", "displayName": "row_number", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "readOnly": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Update Job Child Failed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [9120, 1584],
+      "id": "c01ce0c0-0006-4c00-8000-000000000006",
+      "credentials": { "googleSheetsOAuth2Api": { "id": "dUZaJdXfgHXwnmNN", "name": "Google Sheets account" } }
     },
     {
       "parameters": {
@@ -516,16 +775,14 @@
     "Email IMAP Trigger": { "main": [[{ "node": "Filter Email", "type": "main", "index": 0 }]] },
     "Filter Email": { "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]] },
     "Normalize Input": { "main": [[{ "node": "Has Voice?", "type": "main", "index": 0 }]] },
-    "Has Voice?": { "main": [[{ "node": "Execute STT", "type": "main", "index": 0 }], [{ "node": "Merge After Voice", "type": "main", "index": 1 }]] },
-    "Execute STT": { "main": [[{ "node": "Merge Voice Result", "type": "main", "index": 0 }]] },
-    "Merge Voice Result": { "main": [[{ "node": "Merge After Voice", "type": "main", "index": 0 }]] },
-    "Merge After Voice": { "main": [[{ "node": "Filter Length", "type": "main", "index": 0 }]] },
+    "Has Voice?": { "main": [[{ "node": "Voice Contained", "type": "main", "index": 0 }], [{ "node": "Filter Length", "type": "main", "index": 0 }]] },
     "Filter Length": { "main": [[{ "node": "DeepSeek Intent Classifier", "type": "main", "index": 0 }]] },
     "DeepSeek Intent Classifier": { "main": [[{ "node": "Parse Intent", "type": "main", "index": 0 }]] },
     "Parse Intent": { "main": [[{ "node": "Check Parse Success", "type": "main", "index": 0 }]] },
     "Check Parse Success": { "main": [[{ "node": "Validate Contract", "type": "main", "index": 0 }], [{ "node": "Set Classifier Failed", "type": "main", "index": 0 }, { "node": "Notify Admin", "type": "main", "index": 0 }]] },
-    "Validate Contract": { "main": [[{ "node": "Create Job Row", "type": "main", "index": 0 }]] },
-    "Set Classifier Failed": { "main": [[{ "node": "Create Job Row", "type": "main", "index": 0 }]] },
+    "Validate Contract": { "main": [[{ "node": "Merge To Job Row", "type": "main", "index": 0 }]] },
+    "Set Classifier Failed": { "main": [[{ "node": "Merge To Job Row", "type": "main", "index": 1 }]] },
+    "Merge To Job Row": { "main": [[{ "node": "Create Job Row", "type": "main", "index": 0 }]] },
     "Create Job Row": { "main": [[{ "node": "Route by Intent", "type": "main", "index": 0 }]] },
     "Route by Intent": { "main": [[{ "node": "Execute Search Private", "type": "main", "index": 0 }, { "node": "Is Telegram?", "type": "main", "index": 0 }], [{ "node": "Unsupported Is Telegram?", "type": "main", "index": 0 }], [{ "node": "Failed Is Telegram?", "type": "main", "index": 0 }]] },
     "Is Telegram?": { "main": [[{ "node": "Send Confirmation", "type": "main", "index": 0 }]] },
@@ -534,7 +791,18 @@
     "Unsupported Email Notice": { "main": [[{ "node": "Update Job Unsupported", "type": "main", "index": 0 }]] },
     "Failed Is Telegram?": { "main": [[{ "node": "Failed TG Notice", "type": "main", "index": 0 }], [{ "node": "Failed Email Notice", "type": "main", "index": 0 }]] },
     "Failed TG Notice": { "main": [[{ "node": "Update Job Failed", "type": "main", "index": 0 }]] },
-    "Failed Email Notice": { "main": [[{ "node": "Update Job Failed", "type": "main", "index": 0 }]] }
+    "Failed Email Notice": { "main": [[{ "node": "Update Job Failed", "type": "main", "index": 0 }]] },
+    "Voice Contained": { "main": [[{ "node": "Voice Job Row", "type": "main", "index": 0 }]] },
+    "Voice Job Row": { "main": [[{ "node": "Voice Is Telegram?", "type": "main", "index": 0 }]] },
+    "Voice Is Telegram?": { "main": [[{ "node": "Voice TG Notice", "type": "main", "index": 0 }], [{ "node": "Voice Email Notice", "type": "main", "index": 0 }]] },
+    "Voice TG Notice": { "main": [[{ "node": "Update Voice Job Unsupported", "type": "main", "index": 0 }]] },
+    "Voice Email Notice": { "main": [[{ "node": "Update Voice Job Unsupported", "type": "main", "index": 0 }]] },
+    "Execute Search Private": { "main": [[{ "node": "Check Child Result", "type": "main", "index": 0 }]] },
+    "Check Child Result": { "main": [[{ "node": "Child Failed?", "type": "main", "index": 0 }]] },
+    "Child Failed?": { "main": [[{ "node": "Child Failed Is Telegram?", "type": "main", "index": 0 }], []] },
+    "Child Failed Is Telegram?": { "main": [[{ "node": "Child Failed TG Notice", "type": "main", "index": 0 }], [{ "node": "Child Failed Email Notice", "type": "main", "index": 0 }]] },
+    "Child Failed TG Notice": { "main": [[{ "node": "Update Job Child Failed", "type": "main", "index": 0 }]] },
+    "Child Failed Email Notice": { "main": [[{ "node": "Update Job Child Failed", "type": "main", "index": 0 }]] }
   },
   "settings": {},
   "pinData": {},

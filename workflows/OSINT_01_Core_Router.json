@@ -59,7 +59,7 @@
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
           "conditions": [
-            { "id": "vc", "leftValue": "={{ $json.voice_file_id }}", "rightValue": "", "operator": { "type": "string", "operation": "isNotEmpty" } }
+            { "id": "vc", "leftValue": "={{ ($json.voice_file_id != null) && ($json.voice_file_id !== '') }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
           ],
           "combinator": "and"
         },

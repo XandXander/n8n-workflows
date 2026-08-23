@@ -1295,6 +1295,53 @@ Runtime availability remains UNKNOWN for configured providers.
 Credential references exist in canonical workflow JSON.
 Credential validity and permission scopes remain UNKNOWN.
 
+### ED-013 — Deploy/runtime authorization provenance gap
+
+**Record class:** EVIDENCE DEBT
+
+**Statement:**
+
+VK V1 repository implementation associated with commit
+`6134a35c5b1b9f09c67dd7f857625a4d491d28c7`,
+WF2 P0 persistence-gate repository change associated with commit
+`d999c5f61875e032cfd8cec7153c2a599db3e89f`,
+and WF6 truthful-reporting repository change associated with commit
+`b4bfb6837b5e1219f9e14cfe5e45641622ab2816`
+were reported as deployed and exercised on live n8n.
+
+Exact deploy provenance is incomplete.
+
+For `d999c5f6...` and `b4bfb683...`, the following have not been independently recovered:
+
+- exact PUT timestamp;
+- exact deploying actor/session;
+- exact authorizing Architect/Owner message;
+- exact chat/session provenance linking authorization → deployment action.
+
+**Evidence status:** HISTORICAL CLAIM / TO VERIFY
+
+**Root Cause confidence:** NOT ESTABLISHED
+
+**Required future practice:**
+
+Every future workflow deployment must retain explicit authorization provenance in a machine/human-auditable form, including at minimum:
+
+`DEPLOY AUTHORIZED BY <role> AT <timestamp>`
+
+plus:
+
+- target workflow;
+- repository commit / expected artifact identity;
+- deploying actor/session;
+- deployment result/readback reference.
+
+This evidence-debt item must NOT be marked:
+
+- CLOSED;
+- RESOLVED;
+- APPROVED;
+- runtime verified.
+
 * * *
 
 ## 9. Technical Debt and Current Contract Conflicts — Not ERRs

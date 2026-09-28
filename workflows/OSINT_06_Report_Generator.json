@@ -1,1 +1,1048 @@
-{"id":"qXWixFd94G7Tfgaa","name":"OSINT_06_Report_Generator","nodes":[{"parameters":{},"name":"Start","type":"n8n-nodes-base.executeWorkflowTrigger","typeVersion":1,"position":[-448,112],"id":"b7a2dbf4-b092-4c7c-95a9-d7cf0d8d80fe"},{"parameters":{"assignments":{"assignments":[{"id":"1","name":"job_id","value":"={{ $json.job_id }}","type":"string"},{"id":"2","name":"entity_type","value":"={{ $json.entity_type }}","type":"string"},{"id":"3","name":"result_mode","value":"={{ $json.result_mode }}","type":"string"},{"id":"4","name":"qualified_count","value":"={{ $json.qualified_count || 0 }}","type":"number"},{"id":"5","name":"accepted_count","value":"={{ $json.accepted_count || 0 }}","type":"number"},{"id":"6","name":"requested_count","value":"={{ $json.requested_count }}","type":"number"},{"id":"7","name":"tender_display_payload_json","value":"={{ $json.tender_display_payload_json || '' }}","type":"string"}]},"options":{}},"name":"Set Vars","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[-224,112],"id":"840258ea-7a22-4377-81c3-c07bc4fe2782"},{"parameters":{"documentId":{"__rl":true,"mode":"id","value":"1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"},"sheetName":{"__rl":true,"mode":"name","value":"jobs"},"filtersUI":{"values":[{"lookupColumn":"job_id","lookupValue":"={{ $json.job_id }}"}]},"options":{}},"name":"Read Job","type":"n8n-nodes-base.googleSheets","typeVersion":4.5,"position":[0,0],"id":"78843fb9-92b0-4f13-afd9-521e669b5e4b","credentials":{"googleSheetsOAuth2Api":{"id":"dUZaJdXfgHXwnmNN","name":"Google Sheets account"}}},{"parameters":{"documentId":{"__rl":true,"mode":"id","value":"1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"},"sheetName":{"__rl":true,"mode":"name","value":"={{ $('Set Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"},"filtersUI":{"values":[{"lookupColumn":"job_id","lookupValue":"={{ $('Set Vars').item.json.job_id }}"}]},"options":{}},"name":"Read Qualified Entities","type":"n8n-nodes-base.googleSheets","typeVersion":4.5,"position":[0,208],"id":"5e952083-10be-4e28-a10c-fbdc01045d4c","alwaysOutputData":true,"credentials":{"googleSheetsOAuth2Api":{"id":"dUZaJdXfgHXwnmNN","name":"Google Sheets account"}}},{"parameters":{"jsCode":"const job = $('Read Job').first()?.json || {};\nconst allRows = $('Read Qualified Entities').all().map(function(i) { return i.json; });\nconst entityType = ($('Set Vars').item.json.entity_type || 'lead').toString();\nconst resultMode = $('Set Vars').item.json.result_mode || 'scored';\nconst requestedCount = $('Set Vars').item.json.requested_count;\nconst rawPayload = $('Set Vars').item.json.tender_display_payload_json || '';\n\nfunction isTrue(v) {\n  return v === true || v === 'true' || v === 'TRUE' || v === 'True' || v === 1 || v === '1';\n}\nfunction isQualified(e) {\n  const status = (e.status || '').toString().toLowerCase();\n  return (status === 'qualified' || (Number(e.total_score) || 0) >= 60);\n}\nfunction acceptanceProofOk(e) {\n  return (e.quality_decision === 'ACCEPT')\n      && (e.region_status === 'MATCH')\n      && isTrue(e.service_match)\n      && (e.final_role === 'PRIVATE_DEMAND')\n      && (e.freshness_status === 'CURRENT')\n      && (e.actionability_status === 'ACTIONABLE');\n}\nfunction parseDisplayPayload(raw) {\n  if (!raw || typeof raw !== 'string') return null;\n  let p = null;\n  try { p = JSON.parse(raw); } catch(e) { return null; }\n  if (!p || typeof p !== 'object' || Array.isArray(p)) return null;\n  if (p.schema_version !== 'tender-display-v1') return null;\n  function numOr0(v){ const n=Number(v); return Number.isFinite(n)?n:0; }\n  function arr(v){ return Array.isArray(v)?v:[]; }\n  function itemB(x){ if(!x || typeof x!=='object') return null; return {\n    title: (typeof x.title==='string'?x.title:'').slice(0,200),\n    source: (typeof x.source==='string'?x.source:'').slice(0,200),\n    url: (typeof x.url==='string'?x.url:'').slice(0,500),\n    excerpt: (typeof x.excerpt==='string'?x.excerpt:'').slice(0,300),\n    region: (typeof x.region==='string'?x.region:'').slice(0,200),\n    matched_service: (typeof x.matched_service==='string'?x.matched_service:'').slice(0,200),\n    deadline: (typeof x.deadline==='string'?x.deadline:'').slice(0,40),\n    budget: (typeof x.budget==='string'?x.budget:'').slice(0,80),\n    contact_name: (typeof x.contact_name==='string'?x.contact_name:'').slice(0,200),\n    contact_phone: (typeof x.contact_phone==='string'?x.contact_phone:'').slice(0,100),\n    contact_email: (typeof x.contact_email==='string'?x.contact_email:'').slice(0,200) };\n  }\n  function itemC(x){ if(!x || typeof x!=='object') return null; return {\n    title: (typeof x.title==='string'?x.title:'').slice(0,200) || 'Без названия',\n    source: (typeof x.source==='string'?x.source:'').slice(0,200),\n    url: (typeof x.url==='string'?x.url:'').slice(0,500),\n    reason: (typeof x.reason==='string'?x.reason:'').slice(0,160) };\n  }\n  const leads = arr(p.commercial_subcontract_leads).map(itemB).filter(Boolean).slice(0,10);\n  const manual = arr(p.manual_check_links).map(itemC).filter(Boolean).slice(0,10);\n  return {\n    schema_version: 'tender-display-v1',\n    candidates_total: numOr0(p.candidates_total),\n    verified_count: numOr0(p.verified_count),\n    commercial_count: leads.length,\n    manual_count: manual.length,\n    commercial_subcontract_leads: leads,\n    manual_check_links: manual,\n    diagnostics: (p.diagnostics && typeof p.diagnostics==='object') ? p.diagnostics : null\n  };\n}\n\nif (entityType === 'tender') {\n  function proofPass(e){ return !!(e.url && /^https?:\\/\\//.test(e.url)\n    && e.atomic_status==='ATOMIC_TENDER'\n    && ['FULL_PAGE','PROVIDER_CONTENT'].includes(e.evidence_status)\n    && e.region_status==='MATCH' && e.region\n    && e.freshness_status==='CURRENT' && isTrue(e.service_match)\n    && e.source_excerpt); }\n  const acceptedRows = allRows.filter(proofPass);\n  acceptedRows.sort((a,b) => {\n    const aq = isQualified(a)?0:1, bq=isQualified(b)?0:1;\n    if (aq!==bq) return aq-bq;\n    const sd = (Number(b.total_score)||0) - (Number(a.total_score)||0);\n    if (sd!==0) return sd;\n    return (a.title||'').localeCompare(b.title||'');\n  });\n  const reqNum = Number(requestedCount);\n  const cap = Number.isFinite(reqNum) && reqNum > 0 ? reqNum : 30;\n  const capped = acceptedRows.slice(0, cap);\n  const qualifiedRows = acceptedRows.filter(isQualified);\n  const avgQualified = qualifiedRows.length ? Math.round(qualifiedRows.reduce((s,r)=>s+(Number(r.total_score)||0),0)/qualifiedRows.length) : 0;\n  const requestedDisplay = (Number.isFinite(reqNum) && reqNum>0) ? reqNum : null;\n  const shortfall = requestedDisplay!=null ? Math.max(requestedDisplay - acceptedRows.length, 0) : null;\n  const stats = { total_found: acceptedRows.length, accepted: acceptedRows.length, qualified: qualifiedRows.length, avg_score: avgQualified };\n  const displayPayload = parseDisplayPayload(rawPayload);\n  return [{ json: { job: job, entities: capped, stats: stats, entity_type: entityType, is_zero_result: acceptedRows.length===0, qualified_count: qualifiedRows.length, accepted_count: acceptedRows.length, requested_count: requestedDisplay, shortfall: shortfall, result_mode: resultMode, display_payload: displayPayload } }];\n}\n\nconst qualified = allRows.filter(function(e) {\n  const wf5Qualified = isQualified(e);\n  if (!wf5Qualified) return false;\n  if (entityType === 'lead') return acceptanceProofOk(e);\n  return true;\n});\n\nvar seen = {}; var unique = [];\nfor (var i = 0; i < qualified.length; i++) {\n  var e = qualified[i]; var key = '';\n  if (e.lead_id) key = 'lead:' + e.lead_id;\n  else if (e.company_id) key = 'company:' + e.company_id;\n  else if (e.tender_id) key = 'tender:' + e.tender_id;\n  else if (e.source_url) key = 'url:' + e.source_url;\n  else key = 'fallback:' + (e.title || '') + '|' + (e.source_url || '');\n  if (!seen[key]) { seen[key] = true; unique.push(e); }\n}\n\nunique.sort(function(a, b) { return (Number(b.total_score) || 0) - (Number(a.total_score) || 0); });\n\nvar entities = unique;\nif (requestedCount !== null && requestedCount !== undefined && requestedCount !== '') {\n  const cap = Number(requestedCount);\n  if (Number.isFinite(cap) && cap > 0) { entities = unique.slice(0, cap); }\n}\n\nconst qualifiedCount = unique.length;\nconst acceptedRaw = Number($('Set Vars').item.json.accepted_count);\nconst acceptedCount =\n  Number.isFinite(acceptedRaw) && acceptedRaw >= 0\n    ? acceptedRaw\n    : 0;\nconst isZeroResult = (resultMode === 'no_results') || (qualifiedCount === 0);\nconst avgScore = qualifiedCount ? Math.round(unique.reduce(function(s, e) { return s + (Number(e.total_score) || 0); }, 0) / qualifiedCount) : 0;\nconst stats = {\n  total_found: acceptedCount,\n  accepted: acceptedCount,\n  qualified: qualifiedCount,\n  avg_score: avgScore\n};\n\nreturn [{ json: { job: job, entities: entities, stats: stats, entity_type: entityType, is_zero_result: isZeroResult, qualified_count: qualifiedCount, accepted_count: acceptedCount, result_mode: resultMode } }];"},"name":"Prepare Context","type":"n8n-nodes-base.code","typeVersion":2,"position":[240,112],"id":"b173f260-f653-45cb-a45a-1e7e46cf265c"},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"id":"zr","leftValue":"={{ $json.is_zero_result === true }}","rightValue":false,"operator":{"type":"boolean","operation":"equals"}}],"combinator":"and"},"options":{}},"name":"Has Qualified?","type":"n8n-nodes-base.if","typeVersion":2.2,"position":[400,112]},{"parameters":{"method":"POST","url":"https://api.deepseek.com/v1/chat/completions","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Content-Type","value":"application/json"},{"name":"Connection","value":"keep-alive"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ (function() { var ctx = $('Prepare Context').first().json; var entities = (ctx.entities || []).slice(0, 10); var reportEntities = entities.map(function(e) { return { lead_id: e.lead_id || '', company_id: e.company_id || '', tender_id: e.tender_id || '', title: (e.title || '').toString().slice(0, 300), matched_service: e.matched_service || '', total_score: Number(e.total_score) || 0, status: e.status || 'new', contact_phone: (e.contact_phone || '').toString().slice(0, 200), contact_tg: (e.contact_tg || '').toString().slice(0, 200), contact_email: (e.contact_email || '').toString().slice(0, 200), source_url: (e.source_url || '').toString().slice(0, 500), recommended_action: (e.recommended_action || '').toString().slice(0, 500), first_message_draft: (e.first_message_draft || '').toString().slice(0, 500), why_relevant: (e.why_relevant || '').toString().slice(0, 500) }; }); var reportPayload = { stats: ctx.stats, entity_type: ctx.entity_type, entities: reportEntities }; return JSON.stringify({ model: 'deepseek-v4-pro', temperature: 0.3, max_tokens: 4000, thinking: { type: 'disabled' }, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Ты — старший аналитик OSINT-платформы. Сгенерируй структурированный Markdown-отчёт на русском языке на основе переданных данных о сущностях (лидах). ПРАВИЛА: 1. Заголовок # OSINT Report и дата. 2. Раздел ## Сводка используй строго поля stats.accepted (подпись «Принято после проверки»), stats.qualified (подпись «Квалифицировано»), stats.avg_score (подпись «Средний скор»). НЕ называй accepted или qualified сырым количеством найденных поиском результатов и НЕ утверждай, что поисковые источники вернули 0 результатов. 3. Раздел ## Топ сущностей таблица: №, Название, Услуга, Score, Статус, Контакты, Источник. Максимум 10 строк. 4. Раздел ## Рекомендации для total_score >= 50. 5. Раздел ## Детальный разбор топ-5. Никогда не смешивай поля разных сущностей. Не придумывай контакты и source_url. Верни СТРОГО JSON: { \"markdown_report\": \"string\" }' }, { role: 'user', content: JSON.stringify(reportPayload) } ] }); })() }}","options":{"timeout":120000},"retryOnFail":true},"name":"DeepSeek Generate MD","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[560,64],"id":"39f8ec84-8a0a-47be-8f19-4546813083dd","retryOnFail":true,"credentials":{"httpHeaderAuth":{"id":"R2rXoSacarPbKDqA","name":"DeepSeek API"}}},{"parameters":{"jsCode":"const jobId = $('Set Vars').item.json.job_id || '';\nconst date = new Date().toISOString().slice(0,10);\nconst ctx = $('Prepare Context').first().json;\nconst stats = (ctx && ctx.stats) ? ctx.stats : {};\nconst accepted = (typeof stats.accepted === 'number') ? stats.accepted : 0;\nconst qualified = (typeof stats.qualified === 'number') ? stats.qualified : 0;\nconst avg = (typeof stats.avg_score === 'number') ? stats.avg_score : 0;\nconst md = '# OSINT Report\\n\\nДата: ' + date + '\\n\\n## Сводка\\n\\nПосле проверки ни одна заявка не квалифицирована.\\nПоисковые источники могли вернуть сырые кандидаты; этот отчёт не утверждает, что источники вернули 0 результатов.\\n\\nПринято после проверки: ' + accepted + '\\nКвалифицировано: ' + qualified + '\\nСредний скор: ' + avg + '\\n';\nreturn [{ json: { markdown_report: md } }];"},"name":"Zero Result MD","type":"n8n-nodes-base.code","typeVersion":2,"position":[560,208]},{"parameters":{"jsCode":"// FAIL-CLOSED: WF6 MD to HTML — unified extraction (direct markdown_report OR DeepSeek response)\nconst item = $input.first();\nconst jobId = $('Set Vars').item.json.job_id || 'unknown';\nif (!item || !item.json) {\n  throw new Error('WF6_LLM_RESPONSE_INVALID — job_id=' + jobId + ' — no input');\n}\nlet md = null;\nif (typeof item.json.markdown_report === 'string') {\n  md = item.json.markdown_report;\n} else {\n  const rawResponse = item.json;\n  if (!rawResponse.choices || !Array.isArray(rawResponse.choices) || rawResponse.choices.length === 0) {\n    throw new Error('WF6_LLM_RESPONSE_INVALID — choices absent');\n  }\n  const content = rawResponse.choices[0]?.message?.content;\n  if (!content || typeof content !== 'string' || content.trim() === '') {\n    throw new Error('WF6_LLM_RESPONSE_INVALID — content empty');\n  }\n  let parsed;\n  try {\n    const clean = content.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/i, '').trim();\n    parsed = JSON.parse(clean);\n  } catch(e) {\n    throw new Error('WF6_LLM_RESPONSE_INVALID — JSON parse failed');\n  }\n  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {\n    throw new Error('WF6_LLM_RESPONSE_INVALID — not object');\n  }\n  md = parsed.markdown_report;\n}\nif (!md || typeof md !== 'string' || md.trim() === '') {\n  throw new Error('WF6_LLM_RESPONSE_INVALID — markdown empty');\n}\nfunction mdToHtml(s){\n  let h = s;\n  h = h.replace(/^### (.*)$/gm,'<h3>$1</h3>');\n  h = h.replace(/^## (.*)$/gm,'<h2>$1</h2>');\n  h = h.replace(/^# (.*)$/gm,'<h1>$1</h1>');\n  h = h.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');\n  h = h.replace(/\\*(.+?)\\*/g,'<em>$1</em>');\n  h = h.replace(/`([^`]+)`/g,'<code>$1</code>');\n  h = h.replace(/^\\|(.+)\\|$/gm,(m)=>{const cells=m.slice(1,-1).split('|').map(c=>c.trim());return '<tr>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>';});\n  h = h.replace(/(<tr>[\\s\\S]+?<\\/tr>)/g,'<table>$1</table>');\n  h = h.replace(/^- (.*)$/gm,'<li>$1</li>');\n  h = h.replace(/(<li>[\\s\\S]+?<\\/li>)/g,'<ul>$1</ul>');\n  h = h.replace(/\\n\\n/g,'</p><p>');\n  return '<p>' + h + '</p>';\n}\nconst body = mdToHtml(md);\nconst d = new Date().toISOString().slice(0,10);\nconst date = (item.json.report_date && typeof item.json.report_date === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.json.report_date)) ? item.json.report_date : d;\nconst html = '<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"utf-8\"><title>OSINT ' + jobId + '</title><style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#222;line-height:1.6}h1{color:#1a365d;border-bottom:2px solid #1a365d;padding-bottom:8px}h2{color:#2c5282;margin-top:32px}h3{color:#2b6cb0}table{border-collapse:collapse;width:100%;margin:16px 0}td,th{border:1px solid #ddd;padding:8px 12px;text-align:left}tr:nth-child(even){background:#f7fafc}code{background:#edf2f7;padding:2px 6px;border-radius:3px;font-family:SF Mono,Monaco,monospace}ul{padding-left:24px}.footer{margin-top:60px;padding-top:20px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px}</style></head><body>' + body + '<div class=\"footer\">OSINT Report Job: ' + jobId + ' Generated ' + date + '</div></body></html>';\nreturn [{ json: { html: html, md: md, filename: 'OSINT_' + jobId + '_' + date + '.pdf', job_id: jobId, report_date: date } }];"},"name":"MD to HTML","type":"n8n-nodes-base.code","typeVersion":2,"position":[720,112],"id":"0657bc52-da70-4365-a622-3474d5a1d79e"},{"parameters":{"jsCode":"// FAIL-CLOSED: WF6 Create HTML Binary\nvar html = $input.first()?.json?.html;\nif (!html || typeof html !== 'string' || html.trim() === '') {\n  throw new Error('WF6_HTML_MISSING — html field is absent, not a string, or empty');\n}\nconst binaryData = await this.helpers.prepareBinaryData(html, 'index.html', 'text/html');\nreturn [{ json: { ok: true }, binary: { 'index.html': binaryData } }];"},"name":"Create HTML Binary","type":"n8n-nodes-base.code","typeVersion":2,"position":[928,112],"id":"d65a36da-d0cd-42ca-b891-ca31a606bfe3"},{"parameters":{"method":"POST","url":"http://gotenberg:3000/forms/chromium/convert/html","sendBody":true,"contentType":"multipart-form-data","bodyParameters":{"parameters":[{"parameterType":"formBinaryData","name":"files","inputDataFieldName":"index.html"},{"name":"paperWidth","value":"8.27"},{"name":"paperHeight","value":"11.69"}]},"options":{"response":{"response":{"responseFormat":"file"}},"timeout":120000}},"name":"Gotenberg to PDF","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[1168,112],"id":"f9b47b4f-1b7f-447e-a401-bae4f7176ce2"},{"parameters":{"name":"={{ $('MD to HTML').item.json.filename }}","driveId":{"__rl":true,"mode":"list","value":"My Drive"},"folderId":{"__rl":true,"value":"1xm1Luua_anWS8hLghLJLg_MKZenQ1-SZ","mode":"id"},"options":{}},"name":"Upload to Drive","type":"n8n-nodes-base.googleDrive","typeVersion":3,"position":[1424,0],"id":"8756e01d-79f6-47cc-aad5-8938a1d1e45d","credentials":{"googleDriveOAuth2Api":{"id":"vfX5XNxSmi7T7Zks","name":"Google Drive account"}}},{"parameters":{"jsCode":"const upload = $input.first();\nconst pdf = $('Gotenberg to PDF').first();\nif (!pdf || !pdf.binary || !pdf.binary.data) {\n  throw new Error('WF6_PDF_BINARY_MISSING_BEFORE_DELIVERY');\n}\nreturn [{\n  json: upload.json || {},\n  binary: {\n    data: pdf.binary.data\n  }\n}];"},"name":"Restore PDF Binary","type":"n8n-nodes-base.code","typeVersion":2,"position":[1536,0],"id":"d4c8e1f9-6a2b-4c5d-9e7f-1a2b3c4d5e6f"},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"id":"rd","leftValue":"={{ $('Read Job').first().json.origin_channel }}","rightValue":"telegram","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"options":{}},"name":"Route Delivery","type":"n8n-nodes-base.if","typeVersion":2.2,"position":[1648,112]},{"parameters":{"operation":"sendDocument","chatId":"={{ $('Read Job').first().json.chat_id }}","binaryData":true,"additionalFields":{"caption":"=📊 *OSINT Отчёт готов*\n\n*Job*: `{{ $('Set Vars').item.json.job_id }}`\n*Принято после проверки*: {{ $('Prepare Context').item.json.stats.accepted }}\n*Квалифицировано*: {{ $('Prepare Context').item.json.stats.qualified }}\n*Средний скор*: {{ $('Prepare Context').item.json.stats.avg_score }}","parse_mode":"Markdown"}},"name":"Telegram Send PDF","type":"n8n-nodes-base.telegram","typeVersion":1.2,"position":[1872,0],"id":"c0329d5f-fd7b-497f-82e1-c58b676884eb","webhookId":"894de25b-17f6-4312-895e-ebcc7aef54ce","credentials":{"telegramApi":{"id":"Xw7qHzoLSGuJnpZr","name":"Telegram account"}}},{"parameters":{"fromEmail":"xander1s@yandex.ru","toEmail":"={{ $('Read Job').first().json.requester_email }}","subject":"=OSINT Report {{ $('Set Vars').item.json.job_id }}","html":"=<h2>Отчёт OSINT-платформы</h2><p><b>Job ID:</b> <code>{{ $('Set Vars').item.json.job_id }}</code></p><p><b>Принято после проверки:</b> {{ $('Prepare Context').item.json.stats.accepted }}, <b>квалифицировано:</b> {{ $('Prepare Context').item.json.stats.qualified }}, <b>средний скор:</b> {{ $('Prepare Context').item.json.stats.avg_score }}</p><p>📄 PDF-отчёт: <a href=\"{{ $('Upload to Drive').first().json.webViewLink }}\">Открыть в Google Drive</a></p>","options":{}},"name":"Send Email","type":"n8n-nodes-base.emailSend","typeVersion":2.1,"position":[1872,224],"id":"a67f41a5-3345-4956-9d4a-effe31512ac1","webhookId":"447acd43-9eab-4310-9199-3ddb6eec07d5","credentials":{"smtp":{"id":"H2ru5T06SuHhoIra","name":"Yandex SMTP"}}},{"parameters":{"operation":"append","documentId":{"__rl":true,"value":"1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA","mode":"id"},"sheetName":{"__rl":true,"mode":"name","value":"reports"},"columns":{"mappingMode":"defineBelow","value":{"report_id":"={{ 'rep_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10) }}","job_id":"={{ $('Set Vars').item.json.job_id }}","created_at":"={{ new Date().toISOString() }}","pdf_drive_url":"={{ $('Upload to Drive').first().json.webViewLink }}","md_content_short":"={{ $('MD to HTML').item.json.md.slice(0,500) }}","delivery_channel":"={{ $('Read Job').first().json.origin_channel }}","delivery_status":"sent","delivered_at":"={{ new Date().toISOString() }}","telegram_sent":"={{ $('Read Job').first().json.origin_channel === 'telegram' }}","email_sent":"={{ $('Read Job').first().json.origin_channel === 'email' }}","report_url":"={{ $('Upload to Drive').first().json.webViewLink }}"},"matchingColumns":[],"schema":[{"id":"report_id","displayName":"report_id","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"job_id","displayName":"job_id","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"created_at","displayName":"created_at","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"pdf_drive_url","displayName":"pdf_drive_url","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"md_content_short","displayName":"md_content_short","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"delivery_channel","displayName":"delivery_channel","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"delivery_status","displayName":"delivery_status","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"delivered_at","displayName":"delivered_at","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"telegram_sent","displayName":"telegram_sent","required":false,"defaultMatch":false,"display":true,"type":"boolean","canBeUsedToMatch":true},{"id":"email_sent","displayName":"email_sent","required":false,"defaultMatch":false,"display":true,"type":"boolean","canBeUsedToMatch":true},{"id":"report_url","displayName":"report_url","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true}],"attemptToConvertTypes":false,"convertFieldsToString":false},"options":{}},"name":"Log Report","type":"n8n-nodes-base.googleSheets","typeVersion":4.5,"position":[2080,112],"id":"9fe15080-697c-4f5d-8d5f-757555b36ccf","credentials":{"googleSheetsOAuth2Api":{"id":"dUZaJdXfgHXwnmNN","name":"Google Sheets account"}}},{"parameters":{"operation":"update","documentId":{"__rl":true,"value":"1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA","mode":"id"},"sheetName":{"__rl":true,"mode":"name","value":"jobs"},"columns":{"mappingMode":"defineBelow","value":{"job_id":"={{ $('Set Vars').item.json.job_id }}","status":"={{ ($('Prepare Context').item.json.qualified_count >= 1) ? 'done' : 'no_results' }}","finished_at":"={{ new Date().toISOString() }}","report_url":"={{ $('Upload to Drive').first().json.webViewLink }}","row_number":0},"matchingColumns":["job_id"],"schema":[{"id":"job_id","displayName":"job_id","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"status","displayName":"status","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"finished_at","displayName":"finished_at","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"report_url","displayName":"report_url","required":false,"defaultMatch":false,"display":true,"type":"string","canBeUsedToMatch":true},{"id":"row_number","displayName":"row_number","required":false,"defaultMatch":false,"display":true,"type":"number","canBeUsedToMatch":true,"readOnly":true}],"attemptToConvertTypes":false,"convertFieldsToString":false},"options":{}},"name":"Update Job Terminal","type":"n8n-nodes-base.googleSheets","typeVersion":4.5,"position":[2288,112],"id":"96245202-a0a1-49ef-97f4-f4cb8ab15b70","credentials":{"googleSheetsOAuth2Api":{"id":"dUZaJdXfgHXwnmNN","name":"Google Sheets account"}}},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"loose","version":1},"conditions":[{"id":"tr","leftValue":"={{ $json.entity_type }}","rightValue":"tender","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"options":{}},"name":"Is Tender Report?","type":"n8n-nodes-base.if","typeVersion":2.2,"position":[336,0],"id":"is-tender-report-001"},{"parameters":{"jsCode":"const ctx = $json;\nconst reportDate = new Date().toISOString().slice(0,10);\nconst requested = ctx.requested_count!=null ? ctx.requested_count : 'не задано';\nconst disp = (ctx.display_payload && typeof ctx.display_payload==='object') ? ctx.display_payload : null;\nconst verifiedCount = disp ? disp.verified_count : (ctx.accepted_count!=null?ctx.accepted_count:0);\nconst commercial = disp ? (Array.isArray(disp.commercial_subcontract_leads)?disp.commercial_subcontract_leads:[]) : [];\nconst manual = disp ? (Array.isArray(disp.manual_check_links)?disp.manual_check_links:[]) : [];\nconst commercialCount = commercial.length;\nconst manualCount = manual.length;\nfunction esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }\nfunction cell(s){ return esc(s).replace(/\\r?\\n/g,' ').replace(/\\|/g,'&#124;').replace(/\\s+/g,' ').trim(); }\nfunction safeUrl(u){ if(!u) return null; let raw=String(u).trim(); if(!/^https?:\\/\\//i.test(raw)) return null; try { const p=new URL(raw); if(['http:','https:'].includes(p.protocol)) return p.toString(); } catch(e){} try { const p=new URL(encodeURI(raw)); if(['http:','https:'].includes(p.protocol)) return p.toString(); } catch(e2){} return null; }\nfunction validYMD(v){ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(v||''))) return false; const p=String(v).split('-').map(Number); const y=p[0],m=p[1],d=p[2]; const dt=new Date(Date.UTC(y,m-1,d)); return dt.getUTCFullYear()===y&&dt.getUTCMonth()+1===m&&dt.getUTCDate()===d; }\nfunction money(n){ let v=n; if(v==null||v==='')return 'Не указана в доступном источнике'; if(typeof v==='string'){ let s=v.trim().replace(/[\\u00a0\\s]/g,'').replace(/,/g,'.'); const num=Number(s); v=Number.isFinite(num)?num:NaN; } else { v=Number(v); } if(!Number.isFinite(v)||v<=0) return 'Не указана в доступном источнике'; return Math.round(v).toLocaleString('ru-RU') + ' ₽'; }\nfunction platformOf(e){ if(e.platform && String(e.platform).trim()) return String(e.platform).trim(); const u=String(e.url||''); try { const p=new URL(u); return p.hostname; } catch(err){ return ''; } }\nfunction dateOrOpen(e){ if(validYMD(e.deadline)){ const p=String(e.deadline).split('-'); return p[2]+'.'+p[1]+'.'+p[0]; } if(e.freshness_status==='CURRENT') return 'Активен; точная дата не извлечена'; return 'Не указан'; }\nfunction contactCell(e){ const parts=[e.contact_name,e.contact_phone,e.contact_email].filter(Boolean); return parts.length ? parts.join('; ') : 'Через площадку'; }\nfunction sourceCell(e){ const u = safeUrl(e.url || e.source_url); if (!u) return 'Не указан'; const raw = String(u).replace(/[\\r\\n]+/g, ''); const href = esc(raw.replace(/\\|/g, '%7C')); const visible = esc(raw).replace(/\\|/g, '&#124;'); return '<a href=\"' + href + '\">Открыть карточку</a><br><span>' + visible + '</span>'; }\nfunction linkCellRaw(u){ const su = safeUrl(u); if(!su) return esc(u||''); const raw=String(su).replace(/[\\r\\n]+/g,''); return '<a href=\"' + esc(raw.replace(/\\|/g,'%7C')) + '\">' + esc(raw) + '</a>'; }\nlet md = 'Отчет по тендерам\\n\\n';\nmd += 'Дата: ' + reportDate + '\\n\\n';\nmd += '## Сводка\\n\\n';\nmd += 'Запрошено: ' + requested + '\\n';\nmd += 'Подтвержденных актуальных тендеров: ' + verifiedCount + '\\n';\nmd += 'Коммерческих заявок / субподрядов: ' + commercialCount + '\\n';\nmd += 'Ссылок для ручной проверки: ' + manualCount + '\\n\\n';\n\nmd += '## Подтвержденные актуальные тендеры\\n\\n';\nconst verif = (ctx.entities||[]);\nif (verif.length > 0) {\n  md += '|№|Название|Площадка|№ закупки|Заказчик|Регион|Сумма|Срок подачи|Score|Контакт / канал связи|Источник|\\n';\n  md += '|---|---|---|---|---|---|---|---|---|---|---|\\n';\n  verif.forEach((e,i) => {\n    const platform = platformOf(e);\n    md += '|'+(i+1)+'|'+cell(e.title||'Без названия')+'|'+cell(platform||'Не указана')+'|'+cell(e.tender_number||'Не указан')+'|'+cell(e.customer||'Не указан')+'|'+cell(e.region||'Не указан')+'|'+cell(money(e.budget))+'|'+cell(dateOrOpen(e))+'|'+(Number(e.total_score)||0)+'|'+cell(contactCell(e))+'|'+sourceCell(e)+'|\\n';\n  });\n  md += '\\n';\n} else {\n  md += 'Подтвержденных актуальных тендеров по действующим строгим критериям: 0.\\n\\n';\n  if (commercialCount>0 || manualCount>0 || (disp && disp.candidates_total>0)) {\n    md += 'Это не означает, что подходящих закупок или коммерческих заявок нет во всех источниках. Ни один из обработанных кандидатов не прошёл все действующие критерии подтвержденного актуального тендера; дополнительные публичные кандидаты приведены ниже.\\n\\n';\n  } else if (disp && disp.candidates_total===0) {\n    md += 'В обработанной поисковой выборке кандидаты не получены.\\n\\n';\n  }\n}\n\nmd += '## Коммерческие заявки / субподряд\\n\\n';\nif (commercial.length > 0) {\n  commercial.forEach((c,i) => {\n    md += '### '+(i+1)+'. '+esc(c.title||'Без названия')+'\\n\\n';\n    md += 'Источник: '+esc(c.source||'Не указан')+'\\n\\n';\n    if(c.region){ md += 'Регион: '+esc(c.region)+'\\n\\n'; }\n    if(c.matched_service){ md += 'Услуга: '+esc(c.matched_service)+'\\n\\n'; }\n    if(c.deadline){ md += 'Срок: '+esc(c.deadline)+'\\n\\n'; }\n    if(c.budget){ md += 'Бюджет: '+esc(c.budget)+'\\n\\n'; }\n    if(c.excerpt){ md += 'Фрагмент: '+esc(c.excerpt)+'\\n\\n'; }\n    const hasContact = !!(c.contact_name||c.contact_phone||c.contact_email);\n    if(hasContact){\n      const cc=[c.contact_name,c.contact_phone,c.contact_email].filter(Boolean).join('; ');\n      md += 'Контакт: '+esc(cc)+'\\n\\n';\n    } else {\n      md += 'Контакт: не опубликован — откройте карточку источника.\\n\\n';\n    }\n    md += 'Ссылка: '+linkCellRaw(c.url)+'\\n\\n';\n  });\n} else {\n  md += 'Коммерческих заявок / субподрядов не обнаружено в обработанной выборке.\\n\\n';\n}\n\nmd += '## Ссылки для ручной проверки\\n\\n';\nif (manual.length > 0) {\n  md += 'Эти ссылки не прошли строгую проверку как подтвержденные актуальные тендеры.\\n\\n';\n  manual.forEach((m,i) => {\n    md += (i+1)+'. '+esc(m.title||'Без названия')+'\\n';\n    md += '   Источник: '+esc(m.source||'Не указан')+'\\n';\n    md += '   Ссылка: '+linkCellRaw(m.url)+'\\n';\n    md += '   Причина: '+esc(m.reason||'NOT_VERIFIED_BY_STRICT_GATE')+'\\n\\n';\n  });\n} else {\n  md += 'Ссылок для ручной проверки нет.\\n\\n';\n}\n\nconst dg = (disp && disp.diagnostics && typeof disp.diagnostics==='object') ? disp.diagnostics : null;\nconst showDiag = (dg && (verifiedCount < (Number(requested)||0) || commercialCount>0 || manualCount>0));\nif (showDiag && dg) {\n  md += '## Диагностика поиска\\n\\n';\n  if (disp.candidates_total!=null) { md += 'Обработано кандидатов: ' + disp.candidates_total + '\\n\\n'; }\n  const ff = dg.first_fail_counts || {};\n  const ffLines = [];\n  const FF_ORDER = ['INVALID_URL','EVIDENCE_NOT_FULL','NOT_ATOMIC','PAGE_TYPE_NOT_ATOMIC','REGION_NOT_MATCH','REGION_EMPTY','SERVICE_NOT_MATCH','NOT_CURRENT','RELEVANCE_LT_20','SOURCE_EXCERPT_EMPTY','BUDGET_GATE'];\n  FF_ORDER.forEach(function(k){ const v=Number(ff[k])||0; if(v>0) ffLines.push('*   '+k+' — '+v); });\n  if (ffLines.length>0) { md += 'Причины отбраковки:\\n\\n'+ffLines.join('\\n')+'\\n\\n'; }\n  const es = dg.evidence_status || {};\n  const esLines = [];\n  ['FULL_PAGE','PROVIDER_CONTENT','SNIPPET_ONLY','FETCH_UNAVAILABLE'].forEach(function(k){ const v=Number(es[k])||0; if(v>0) esLines.push('*   '+k+' — '+v); });\n  if (esLines.length>0) { md += 'Evidence:\\n\\n'+esLines.join('\\n')+'\\n\\n'; }\n}\n\nreturn [{ json: { markdown_report: md, report_date: reportDate } }];"},"name":"Build Tender Report MD","type":"n8n-nodes-base.code","typeVersion":2,"position":[560,0],"id":"build-tender-md-001"}],"connections":{"Start":{"main":[[{"node":"Set Vars","type":"main","index":0}]]},"Set Vars":{"main":[[{"node":"Read Job","type":"main","index":0}]]},"Read Job":{"main":[[{"node":"Read Qualified Entities","type":"main","index":0}]]},"Read Qualified Entities":{"main":[[{"node":"Prepare Context","type":"main","index":0}]]},"Prepare Context":{"main":[[{"node":"Is Tender Report?","type":"main","index":0}]]},"Has Qualified?":{"main":[[{"node":"DeepSeek Generate MD","type":"main","index":0}],[{"node":"Zero Result MD","type":"main","index":0}]]},"DeepSeek Generate MD":{"main":[[{"node":"MD to HTML","type":"main","index":0}]]},"Zero Result MD":{"main":[[{"node":"MD to HTML","type":"main","index":0}]]},"MD to HTML":{"main":[[{"node":"Create HTML Binary","type":"main","index":0}]]},"Create HTML Binary":{"main":[[{"node":"Gotenberg to PDF","type":"main","index":0}]]},"Gotenberg to PDF":{"main":[[{"node":"Upload to Drive","type":"main","index":0}]]},"Upload to Drive":{"main":[[{"node":"Restore PDF Binary","type":"main","index":0}]]},"Restore PDF Binary":{"main":[[{"node":"Route Delivery","type":"main","index":0}]]},"Route Delivery":{"main":[[{"node":"Telegram Send PDF","type":"main","index":0}],[{"node":"Send Email","type":"main","index":0}]]},"Telegram Send PDF":{"main":[[{"node":"Log Report","type":"main","index":0}]]},"Send Email":{"main":[[{"node":"Log Report","type":"main","index":0}]]},"Log Report":{"main":[[{"node":"Update Job Terminal","type":"main","index":0}]]},"Is Tender Report?":{"main":[[{"node":"Build Tender Report MD","type":"main","index":0}],[{"node":"Has Qualified?","type":"main","index":0}]]},"Build Tender Report MD":{"main":[[{"node":"MD to HTML","type":"main","index":0}]]}},"settings":{},"pinData":{},"meta":{"templateCredsSetupCompleted":true,"instanceId":"65dd5bfdd5bd23c4610ca6a25496958f6e139a7aa0be700c2c525059b427f26d"}}
+{
+  "id": "qXWixFd94G7Tfgaa",
+  "name": "OSINT_06_Report_Generator",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        336,
+        704
+      ],
+      "id": "b7a2dbf4-b092-4c7c-95a9-d7cf0d8d80fe"
+    },
+    {
+      "parameters": {
+        "jsCode": "const j=$input.first()&&$input.first().json?$input.first().json:{};function nc(v){if(v===null||v===undefined||v==='')return null;const n=Number(v);return Number.isFinite(n)&&n>=0?Math.floor(n):null;}function tb(v){if(v===true||String(v).toLowerCase()==='true')return true;if(v===false||String(v).toLowerCase()==='false')return false;return null;}\nreturn[{json:{job_id:String(j.job_id||''),entity_type:String(j.entity_type||'lead'),result_mode:String(j.result_mode||'unavailable'),qualified_count:nc(j.qualified_count),accepted_count:nc(j.accepted_count),persisted_total:nc(j.persisted_total),selected_count:nc(j.selected_count),report_count:nc(j.report_count),requested_count:nc(j.requested_count),shortfall:nc(j.shortfall),aggregation_complete:tb(j.aggregation_complete),tender_display_payload_json:j.tender_display_payload_json==null?null:j.tender_display_payload_json,search_diagnostics_json:j.search_diagnostics_json==null?null:j.search_diagnostics_json,private_display_payload_json:j.private_display_payload_json==null?null:j.private_display_payload_json,analyst_diagnostics_json:j.analyst_diagnostics_json==null?null:j.analyst_diagnostics_json}}];"
+      },
+      "name": "Set Vars",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        704
+      ],
+      "id": "840258ea-7a22-4377-81c3-c07bc4fe2782"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "jobs"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "job_id",
+              "lookupValue": "={{ $json.job_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Read Job",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        592
+      ],
+      "id": "78843fb9-92b0-4f13-afd9-521e669b5e4b",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dUZaJdXfgHXwnmNN",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "job_id",
+              "lookupValue": "={{ $('Set Vars').item.json.job_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Read Qualified Entities",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        800
+      ],
+      "id": "5e952083-10be-4e28-a10c-fbdc01045d4c",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dUZaJdXfgHXwnmNN",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $('Read Job').first()?.json || {};\nconst rows = $('Read Qualified Entities').all().map((item) => item && item.json ? item.json : {});\nconst historicalRows = $('Read Historical Market Entities').all().map((item) => item && item.json ? item.json : {});\nconst vars = $('Set Vars').first().json || {};\nconst entityType = String(vars.entity_type || 'lead');\n\nfunction numberOrNull(value) {\n  if (value === null || value === undefined || value === '') return null;\n  const number = Number(value);\n  return Number.isFinite(number) ? number : null;\n}\nfunction boolOrNull(value) {\n  if (value === true || String(value).toLowerCase() === 'true') return true;\n  if (value === false || String(value).toLowerCase() === 'false') return false;\n  return null;\n}\nfunction truth(value) { return value === true || value === 'true' || value === 'TRUE' || value === 1 || value === '1'; }\nfunction clean(value, limit) { return String(value == null ? '' : value).replace(/\\s+/g, ' ').trim().slice(0, limit); }\nfunction dedupe(values, keyOf) {\n  const seen = new Set();\n  const result = [];\n  for (const value of values) {\n    const key = keyOf(value);\n    if (!key || seen.has(key)) continue;\n    seen.add(key);\n    result.push(value);\n  }\n  return result;\n}\nfunction sortScore(a, b) {\n  const left = numberOrNull(a.total_score);\n  const right = numberOrNull(b.total_score);\n  if (left === null && right !== null) return 1;\n  if (right === null && left !== null) return -1;\n  if (left !== null && right !== null && left !== right) return right - left;\n  return clean(a.title || a.description, 200).localeCompare(clean(b.title || b.description, 200));\n}\nfunction payloadState(raw, schema, required) {\n  if (raw === null || raw === undefined || raw === '') return { state: 'MISSING', reason: 'PAYLOAD_ABSENT', payload: null };\n  let payload;\n  if (typeof raw === 'object' && !Array.isArray(raw)) payload = raw;\n  else if (typeof raw === 'string') {\n    try { payload = JSON.parse(raw); } catch (error) { return { state: 'INVALID', reason: 'JSON_PARSE_FAILED', payload: null }; }\n  } else return { state: 'INVALID', reason: 'PAYLOAD_TYPE_INVALID', payload: null };\n  if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.schema_version !== schema) return { state: 'INVALID', reason: 'SCHEMA_VERSION_INVALID', payload: null };\n  for (const key of required) if (!Object.prototype.hasOwnProperty.call(payload, key)) return { state: 'INVALID', reason: 'MISSING_' + key.toUpperCase(), payload: null };\n  if (!Array.isArray(payload.manual_check_links)) return { state: 'INVALID', reason: 'MANUAL_LINKS_NOT_ARRAY', payload: null };\n  return { state: 'VALID', reason: null, payload };\n}\nfunction parseDiagnostics(raw, schema) {\n  if (raw === null || raw === undefined || raw === '') return { state: 'MISSING', payload: null };\n  try {\n    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;\n    return payload && payload.schema_version === schema ? { state: 'VALID', payload } : { state: 'INVALID', payload: null };\n  } catch (error) { return { state: 'INVALID', payload: null }; }\n}\nfunction embeddedMarketIdentity(entry){\n  const t=String(entry&&entry.description||'')+' '+String(entry&&entry.title||'');\n  const m=t.match(/https?:\\/\\/(?:www\\.)?(shikari\\.do\\/sr\\/[^\\s)]+|napodrabotku\\.ru\\/order\\/\\d+)/i);\n  return m?String(m[0]).replace(/[),.;]+$/,'').toLowerCase():'';\n}\nfunction privateManualHardNegative(entry){\n  const t=clean([entry&&entry.title,entry&&entry.description].filter(Boolean).join(' | '),5000).toLowerCase().replace(/ё/g,'е');\n  const relation=String(entry&&entry.commercial_demand_relation||entry&&entry.service_relation_status||'');\n  const strictPositive=entry&&entry.service_match===true&&relation==='CORE_MATCH';\n  if(strictPositive)return false;\n  return /(?:кастинг|самопроб|фотомодел|моделинг|курс\\w*|обучени\\w*|вебинар\\w*|конкурс\\w*|фестивал\\w*|участв\\w*\\s+(?:в\\s+)?конкурс|лауреат|сертификат\\w*\\s+участник)/iu.test(t);\n}\nfunction privateManualForeignRegion(entry,requestedRegion){\n  const req=clean(requestedRegion,160).toLowerCase().replace(/ё/g,'е').trim();\n  const raw=clean([entry&&entry.title,entry&&entry.description].filter(Boolean).join(' | '),5000);\n  const n=raw.toLowerCase().replace(/ё/g,'е');\n  if(!req||!raw)return false;\n  if(n.includes(req))return false;\n  if(/удаленн|дистанционно|из любого города|город не важен|местоположение не важно|\\bremote\\b/i.test(n))return false;\n  return /(?:^|[^\\p{L}\\p{N}])[а-яё-]{3,}(?:\\s+[а-яё-]{3,}){0,2}\\s+(?:област(?:ь|и)|кра(?:й|е|я)|республик(?:а|е|и)|автономн\\p{L}*\\s+округ\\p{L}*|округ(?:е|а)?)(?=$|[^\\p{L}\\p{N}])/iu.test(n)\n    || /(?:^|[^\\p{L}\\p{N}])республик(?:а|е|и)\\s+[а-яё-]{3,}(?=$|[^\\p{L}\\p{N}])/iu.test(n)\n    || /(?:^|[\\s,(])(?:г\\.|город)\\s*[А-ЯЁ][а-яё-]{2,}/iu.test(raw)\n    || /(?:^|[\\s,(])(?:в|во|на)\\s+[А-ЯЁ][а-яё-]{2,}(?:[- ][А-ЯЁ][а-яё-]{2,})?/iu.test(raw);\n}\nfunction manualFrom(state, label, status) {\n  if (state.state !== 'VALID') return [];\n  const seen = new Set();\n  const result = [];\n  const privateSoftReasons = new Set(['SERVICE_ADJACENT','REGION_UNKNOWN','FRESHNESS_NOT_CURRENT','DEDUP_UNKNOWN','PERSISTENCE_ERROR','PERSISTENCE_UNCERTAIN','ROLE_AMBIGUOUS','EVIDENCE_INSUFFICIENT','NO_ACTIONABLE_RESPONSE','ROLE_NOT_PRIVATE_DEMAND']);\n  for (const entry of state.payload.manual_check_links) {\n    if (!entry || typeof entry !== 'object') continue;\n    const url = clean(entry.url, 500);\n    const identity=embeddedMarketIdentity(entry)||url;\n    if (!/^https?:\\/\\//i.test(url) || seen.has(identity)) continue;\n    if (entityType === 'tender') {\n      if (entry.link_kind !== 'ATOMIC_TENDER') continue;\n      const checks = entry.checks && typeof entry.checks === 'object' ? entry.checks : {};\n      if (checks.service === 'MISMATCH' || checks.region === 'MISMATCH' || checks.freshness === 'EXPIRED') continue;\n    }\n    if (entityType === 'lead') {\n      const reason = String(entry.reason || '');\n      const relation=String(entry.commercial_demand_relation||entry.service_relation_status||'');\n      const serviceReviewable = entry.service_match === true || relation === 'CORE_MATCH' || relation === 'ADJACENT_MATCH' || entry.adjacent_service_match === true;\n      const roleReviewable=String(entry.final_role||'')==='PRIVATE_DEMAND'||relation==='CORE_MATCH'||relation==='ADJACENT_MATCH';\n      const requestedRegion=state.payload&&state.payload.request_context?state.payload.request_context.region:null;\n      if (!serviceReviewable || !roleReviewable || !privateSoftReasons.has(reason)) continue;\n      if (privateManualHardNegative(entry)) continue;\n      if (privateManualForeignRegion(entry,requestedRegion)) continue;\n    }\n    seen.add(identity);\n    result.push({\n      label,\n      result_status: status,\n      counts_toward_requested: false,\n      title: clean(entry.title || 'Без названия', 200),\n      description: clean(entry.description || '', 700),\n      source: clean(entry.source, 100),\n      region: String(entry.region_status||'')==='MATCH' ? clean(entry.region, 160) : '',\n      url,\n      reason: clean(entry.reason || 'MANUAL_CHECK', 100),\n      score: numberOrNull(entry.score),\n      service_match: entry.service_match === true,\n      adjacent_service_match: entry.adjacent_service_match === true,\n      service_relation_status: clean(entry.service_relation_status, 80),\n      commercial_demand_relation: clean(entry.commercial_demand_relation, 80),\n      final_role: clean(entry.final_role, 80),\n      region_status: clean(entry.region_status, 80),\n      freshness_status: clean(entry.freshness_status, 80)\n    });\n  }\n  return result;\n}\nfunction requestInfo() {\n  let entities = job.entities;\n  for (let i = 0; i < 3 && typeof entities === 'string'; i++) {\n    try { entities = JSON.parse(entities); } catch (error) { entities = {}; break; }\n  }\n  entities = entities && typeof entities === 'object' && !Array.isArray(entities) ? entities : {};\n  let displayCtx=null;try{const raws=[vars.private_display_payload_json,vars.tender_display_payload_json];for(const raw of raws){if(!raw)continue;const p=typeof raw==='string'?JSON.parse(raw):raw;if(p&&p.request_context){displayCtx=p.request_context;break;}}}catch(error){}\n  return { service: clean((displayCtx&&displayCtx.service)||entities.service||'',200)||null, region: clean((displayCtx&&displayCtx.region)||entities.region||'',200)||null, region_scope: clean((displayCtx&&displayCtx.region_scope)||'',30)||null };\n}\nfunction advisoryStats(selected, persisted, aggregationComplete) {\n  const scores = selected.map((entry) => numberOrNull(entry.total_score)).filter((value) => value !== null);\n  let qualified = null;\n  if (!selected.length && persisted === 0 && aggregationComplete === true) qualified = 0;\n  else if (selected.length) qualified = selected.filter((entry) => String(entry.status || '').toLowerCase() === 'qualified' || (numberOrNull(entry.total_score) !== null && numberOrNull(entry.total_score) >= 60)).length;\n  const average = scores.length ? Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length) : null;\n  return { total_found: persisted, accepted: persisted, qualified, avg_score: average };\n}\nfunction show(value) { return value === null || value === undefined ? 'нет данных' : String(value); }\nfunction yesNo(value) { return value === true ? 'да' : (value === false ? 'нет' : 'нет данных'); }\nfunction renderSearchDiagnostics(state) {\n  if (state.state !== 'VALID' || !state.payload) return 'Диагностика поиска недоступна';\n  const diagnostics = state.payload;\n  return [\n    '- Полнота пакета поисковых запросов: ' + yesNo(boolOrNull(diagnostics.query_batch_complete)),\n    '- Полнота покрытия источников: ' + yesNo(boolOrNull(diagnostics.source_coverage_complete)),\n    '- Завершено поисковых профилей: ' + show(numberOrNull(diagnostics.completed_profile_count)),\n    '- Недоступно поисковых профилей: ' + show(numberOrNull(diagnostics.unavailable_profile_count)),\n    '- Сохранено подтверждённых заявок: ' + show(numberOrNull(diagnostics.new_persisted_count))\n  ].join('\\n');\n}\n\n\nfunction canonicalUrl(value){\n  const s=clean(value,700);if(!/^https?:\\/\\//i.test(s))return'';\n  try{const u=new URL(s);u.hash='';u.hostname=u.hostname.toLowerCase().replace(/^www\\./,'');for(const k of [...u.searchParams.keys()])if(/^utm_/i.test(k)||['gclid','yclid','fbclid','_openstat','ref','referrer'].includes(k.toLowerCase()))u.searchParams.delete(k);if(u.pathname.length>1&&u.pathname.endsWith('/'))u.pathname=u.pathname.slice(0,-1);return u.toString();}catch(e){return s;}\n}\nfunction norm(v){let s=String(v==null?'':v);try{s=s.normalize('NFKC');}catch(e){}return s.toLowerCase().replace(/ё/g,'е').replace(/[^\\p{L}\\p{N}]+/gu,' ').replace(/\\s+/g,' ').trim();}\nfunction stem(token){let x=norm(token);const endings=['иями','ями','ами','ого','ему','ому','ыми','ими','овать','ировать','ение','ения','ений','ать','ять','ить','еть','уть','ых','их','ой','ей','ая','яя','ое','ее','ые','ие','ий','ый','ов','ев','ам','ям','ах','ях','ом','ем','а','я','ы','и','у','ю','е','ь'];for(const z of endings){if(x.endsWith(z)&&x.length-z.length>=3){x=x.slice(0,-z.length);break;}}return x;}\nfunction regionMatchesRequest(entryRegion,text,requestRegion){\n  const req=norm(requestRegion),er=norm(entryRegion),t=norm(text);if(!req)return false;if(er&&(er===req||er.includes(req)||req.includes(er)))return true;\n  const rt=req.split(' ').map(stem).filter(x=>x.length>=3),tt=t.split(' ').map(stem).filter(Boolean);return rt.length>0&&rt.every(r=>tt.some(x=>x===r||(x.length>=4&&r.length>=4&&(x.startsWith(r)||r.startsWith(x)))));\n}\nfunction parseDate(value){\n  if(value===null||value===undefined||value==='')return null;\n  if(typeof value==='number'||/^\\d{5}(?:\\.\\d+)?$/.test(String(value).trim())){const n=Number(value);if(Number.isFinite(n)&&n>30000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+Math.floor(n)*86400000);return d.toISOString().slice(0,10);}}\n  const s=String(value).trim();let m=s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);if(m)return m[1]+'-'+m[2]+'-'+m[3];m=s.match(/^(\\d{2})[.\\-/](\\d{2})[.\\-/](\\d{4})/);if(m)return m[3]+'-'+m[2]+'-'+m[1];return null;\n}\nfunction daysAgo(dateStr){\n  const d=parseDate(dateStr);if(!d)return null;const a=Date.parse(d+'T00:00:00Z'),b=Date.parse(new Date().toISOString().slice(0,10)+'T00:00:00Z');return Number.isFinite(a)&&Number.isFinite(b)?Math.floor((b-a)/86400000):null;\n}\nfunction historicalTenderKey(e){const id=clean(e.tender_id||e.tender_number,200);if(id)return'id:'+id;const u=canonicalUrl(e.url||e.source_url);return u?'url:'+u:'';}\nfunction tenderHistoricalCurrent(e,request){\n  if(String(e.job_id||'')===String(vars.job_id||''))return false;\n  const url=canonicalUrl(e.url||e.source_url);if(!url)return false;\n  if(String(e.atomic_status||'')!=='ATOMIC_TENDER')return false;\n  if(!['FULL_PAGE','PROVIDER_CONTENT'].includes(String(e.evidence_status||'')))return false;\n  const text=[e.title,e.summary,e.source_excerpt,e.matched_service,e.service_evidence].filter(Boolean).join(' | ');\n  if(!regionMatchesRequest(e.region,text,request.region))return false;\n  if(!(truth(e.service_match)||norm(e.matched_service)===norm(request.service)))return false;\n  if(String(e.freshness_status||'')!=='CURRENT')return false;\n  const deadline=parseDate(e.deadline),today=new Date().toISOString().slice(0,10);if(!deadline||deadline<today)return false;\n  return true;\n}\nfunction historicalPrivateCandidate(e,request){\n  if(String(e.job_id||'')===String(vars.job_id||''))return null;\n  const url=canonicalUrl(e.source_url||e.url);if(!url)return null;\n  const text=clean([e.title,e.description,e.raw_text,e.why_relevant].filter(Boolean).join(' | '),5000),svc=norm(request.service),isVideo=/видео|ролик|видеограф|видеооператор|съем|съём|reels?|рилс|shorts?|video/.test(svc);\n  const hardNegative=/(?:кастинг|самопроб|фотомодел|моделинг|акт[её]р\\p{L}*\\s+(?:на|для)\\s+(?:съем|съём)|курс\\p{L}*|обучени\\p{L}*|вебинар\\p{L}*|конкурс\\p{L}*|фестивал\\p{L}*|участв\\p{L}*\\s+(?:в\\s+)?конкурс|лауреат|сертификат\\p{L}*\\s+участник)/iu.test(text);\n  if(hardNegative)return null;\n  let relation=false;\n  if(isVideo){\n    const role=/(?:ищу|ищем|нужен|нужна|нужны|требуется|требуются|разыскиваем)[^.!?\\n]{0,90}(?:видеограф\\p{L}*|видеооператор\\p{L}*|рилсмейкер\\p{L}*|reels[- ]?мейкер\\p{L}*|видеомонтаж[её]р\\p{L}*|монтаж[её]р\\p{L}*)/iu.test(text);\n    const task=/(?:нужно|необходимо|требуется|задача|заказ)[^.!?\\n]{0,100}(?:снять\\p{L}*|съ[её]мк\\p{L}*|смонтир\\p{L}*|монтаж\\p{L}*|созда\\p{L}*)[^.!?\\n]{0,80}(?:видео\\p{L}*|ролик\\p{L}*|reels?|рилс\\p{L}*|shorts?)/iu.test(text);\n    const atomicTask=/napodrabotku\\.ru\\/order\\/\\d+/i.test(url)&&/(?:видеомонтаж|съ[её]мка\\s+reels?|видеооператор|создани[ея]\\s+видео|ролик\\s+для\\s+соцсет)/iu.test(text);\n    relation=role||task||atomicTask;\n  }else{\n    const stop=new Set(['создание','создать','монтаж','сделать','работа','услуга','услуги','заказ','требуется','нужно','нужен']);\n    const req=svc.split(' ').map(stem).filter(x=>x.length>=3&&!stop.has(x)),toks=norm(text).split(' ').map(stem).filter(Boolean);\n    const object=req.length?req.some(r=>toks.some(x=>x===r||(x.length>=5&&r.length>=5&&(x.startsWith(r)||r.startsWith(x))))):false;\n    const demand=/(?:ищу|ищем|нужен|нужна|нужны|нужно|требуется|требуются|заказ|задача)/iu.test(text);relation=object&&demand;\n  }\n  if(!relation)return null;\n  if(privateManualForeignRegion({title:e.title,description:text},request.region)&&String(e.region_match_basis||'')!=='EXPLICIT_REMOTE')return null;\n  if(!regionMatchesRequest(e.region,text,request.region)&&String(e.region_match_basis||'')!=='EXPLICIT_REMOTE')return null;\n  const age=daysAgo(e.posted_at||e.created_at||e.scraped_at);if(age!==null&&(age<0||age>21))return null;\n  return{label:'ТРЕБУЕТ ПРОВЕРКИ',result_status:'PREVIOUSLY_FOUND_RECHECK',counts_toward_requested:false,title:clean(e.title||e.description||'Ранее найденная заявка',200),description:clean(e.description||e.raw_text||'',700),source:clean(e.source_platform||e.source,100),region:clean(e.region||request.region,160),url,reason:'PREVIOUSLY_FOUND_RECHECK',score:numberOrNull(e.total_score),service_match:false,adjacent_service_match:true,service_relation_status:'ADJACENT_MATCH',commercial_demand_relation:'ADJACENT_MATCH',final_role:'PRIVATE_DEMAND',region_status:'MATCH',freshness_status:'UNKNOWN'};\n}\n\nconst request = requestInfo();\nconst requested = numberOrNull(vars.requested_count);\nconst analyst = parseDiagnostics(vars.analyst_diagnostics_json, 'analyst-diagnostics-v5');\nfunction common(uniqueRows, display, extra) {\n  const upstreamAggregation = boolOrNull(vars.aggregation_complete);\n  const displayAggregation = display.state === 'VALID' ? boolOrNull(display.payload.aggregation_complete) : null;\n  const aggregationComplete = display.state === 'VALID' ? displayAggregation : (upstreamAggregation === true ? null : upstreamAggregation);\n  const displayPersisted = display.state === 'VALID' ? numberOrNull(display.payload.persisted_total) : null;\n  const upstreamPersisted = numberOrNull(vars.persisted_total) !== null ? numberOrNull(vars.persisted_total) : numberOrNull(vars.accepted_count);\n  const persisted = displayPersisted !== null ? displayPersisted : (upstreamPersisted !== null ? upstreamPersisted : (uniqueRows.length > 0 ? uniqueRows.length : (aggregationComplete === true ? 0 : null)));\n  const selected = uniqueRows;\n  const selectedCount = selected.length;\n  const displayShortfall = display.state === 'VALID' ? numberOrNull(display.payload.shortfall) : null;\n  const upstreamShortfall = numberOrNull(vars.shortfall);\n  const shortfall = requested !== null && requested > 0 ? (displayShortfall !== null ? displayShortfall : (upstreamShortfall !== null ? upstreamShortfall : (persisted !== null ? Math.max(0, Math.floor(requested) - persisted) : null))) : null;\n  let acquisitionStatus = 'UNAVAILABLE';\n  if (display.state === 'VALID' && ['COMPLETE','PARTIAL','UNAVAILABLE'].includes(String(display.payload.acquisition_status || ''))) acquisitionStatus = String(display.payload.acquisition_status);\n  else if (aggregationComplete === true) acquisitionStatus = 'COMPLETE';\n  else if (persisted !== null && persisted > 0) acquisitionStatus = 'PARTIAL';\n  if (aggregationComplete !== true && persisted !== null && persisted > 0) acquisitionStatus = 'PARTIAL';\n  const resultMode = persisted !== null && persisted > 0 ? (aggregationComplete === true ? 'scored' : 'partial_results') : (aggregationComplete === true ? 'no_results' : 'unavailable');\n  const stats = advisoryStats(selected, persisted, aggregationComplete);\n  return Object.assign({\n    job,\n    request_service: request.service,\n    request_region: request.region,\n    request_region_scope: request.region_scope,\n    entity_type: entityType,\n    result_mode: resultMode,\n    entities: selected,\n    accepted_count: persisted,\n    persisted_total: persisted,\n    selected_count: selectedCount,\n    report_count: selectedCount,\n    requested_count: requested,\n    shortfall,\n    aggregation_complete: aggregationComplete,\n    acquisition_status: acquisitionStatus,\n    is_zero_result: persisted === 0 && aggregationComplete === true,\n    stats,\n    qualified_count: stats.qualified,\n    search_diagnostics_markdown: '',\n    display_payload_state: display.state,\n    display_payload_reason: display.reason,\n    manual_check_links: manualFrom(display, 'ТРЕБУЕТ ПРОВЕРКИ', entityType === 'tender' ? 'НЕ ПОДТВЕРЖДЕНО' : 'НЕ ПОДТВЕРЖДЕНО'),\n    manual_review_count: manualFrom(display, 'ТРЕБУЕТ ПРОВЕРКИ', entityType === 'tender' ? 'НЕ ПОДТВЕРЖДЕНО' : 'НЕ ПОДТВЕРЖДЕНО').length,\n    response_channel_counts: display.state==='VALID' && display.payload.response_channel_counts ? display.payload.response_channel_counts : null,\n    analyst_diagnostics_state: analyst.state,\n    analyst_diagnostics: analyst.payload\n  }, extra || {});\n}\n\nif (entityType === 'tender') {\n  const proof = rows.filter((entry) => entry.url && /^https?:\\/\\//i.test(String(entry.url)) && entry.atomic_status === 'ATOMIC_TENDER' && ['FULL_PAGE','PROVIDER_CONTENT'].includes(entry.evidence_status) && entry.region_status === 'MATCH' && clean(entry.region, 200) && entry.freshness_status === 'CURRENT' && truth(entry.service_match) && clean(entry.source_excerpt, 500));\n  const currentUnique = dedupe(proof, historicalTenderKey).sort(sortScore),currentKeys=new Set(currentUnique.map(historicalTenderKey).filter(Boolean)),historyKeys=new Set(),historicalUnique=[];\n  for(const entry of historicalRows){if(!tenderHistoricalCurrent(entry,request))continue;const k=historicalTenderKey(entry);if(!k||currentKeys.has(k)||historyKeys.has(k))continue;historyKeys.add(k);historicalUnique.push(Object.assign({},entry,{found_before:true,result_status:'PREVIOUSLY_FOUND_CURRENT'}));}\n  historicalUnique.sort(sortScore);\n  const allUnique=currentUnique.concat(historicalUnique),display = payloadState(vars.tender_display_payload_json, 'tender-display-v12', ['aggregation_complete','persisted_total','manual_check_links']);\n  const base=common(allUnique, display, {\n    display_payload: display.payload,\n    tender_diagnostics: display.state === 'VALID' && display.payload.diagnostics && typeof display.payload.diagnostics === 'object' ? display.payload.diagnostics : null,\n    zero_stage: display.state === 'VALID' ? display.payload.zero_stage || null : null,\n    new_persisted_count: currentUnique.length,\n    previously_found_count: historicalUnique.length,\n    previously_found_tenders: historicalUnique\n  });\n  const confirmedTotal=allUnique.length;base.entities=allUnique;base.accepted_count=confirmedTotal;base.persisted_total=confirmedTotal;base.selected_count=confirmedTotal;base.report_count=confirmedTotal;base.shortfall=requested!==null&&requested>0?Math.max(0,Math.floor(requested)-confirmedTotal):null;base.manual_review_count=(base.manual_check_links||[]).length;base.stats.total_found=confirmedTotal;base.stats.accepted=confirmedTotal;\n  return [{ json: base }];\n}\n\nif (entityType === 'lead') {\n  function canonicalLeadKey(entry) {\n    const stable = clean(entry.stable_lead_id || entry.existing_lead_id || '', 160);\n    if (stable) return 'lead:' + stable;\n    let u = clean(entry.source_url || entry.url || '', 500);\n    if (/^https?:\\/\\//i.test(u)) { try { const x = new URL(u); x.hash=''; for(const k of [...x.searchParams.keys()]) if(/^utm_/i.test(k)||['gclid','yclid','fbclid','_openstat'].includes(k.toLowerCase())) x.searchParams.delete(k); x.hostname=x.hostname.toLowerCase().replace(/^www\\./,''); if(x.pathname.length>1&&x.pathname.endsWith('/'))x.pathname=x.pathname.slice(0,-1); u=x.toString(); } catch(error) {} return 'url:'+u; }\n    const id=clean(entry.lead_id||'',160);return id?'lead:'+id:'';\n  }\n  const proof = rows.filter((entry) => entry.quality_decision === 'ACCEPT' && entry.region_status === 'MATCH' && truth(entry.service_match) && entry.final_role === 'PRIVATE_DEMAND' && entry.freshness_status === 'CURRENT' && entry.actionability_status === 'ACTIONABLE');\n  const newUnique = dedupe(proof, canonicalLeadKey).sort(sortScore);\n  const display = payloadState(vars.private_display_payload_json, 'private-display-v13', ['aggregation_complete','accepted_count','manual_check_links','previously_found_cards','new_persisted_count','qualified_duplicate_count','qualified_total','report_count','response_channel_counts']);\n  const search = parseDiagnostics(vars.search_diagnostics_json, 'private-diagnostics-v13');\n  const newKeys=new Set(newUnique.map(canonicalLeadKey).filter(Boolean));\n  const previousRaw=display.state==='VALID'&&Array.isArray(display.payload.previously_found_cards)?display.payload.previously_found_cards:[];\n  const previousUnique=[];const previousKeys=new Set();\n  for(const entry of previousRaw){const k=canonicalLeadKey(entry);if(!k||newKeys.has(k)||previousKeys.has(k))continue;previousKeys.add(k);previousUnique.push(entry);}\n  previousUnique.sort(sortScore);\n  const selectedNew=newUnique;const selectedPrevious=previousUnique;\n  const renderedCount=selectedNew.length+selectedPrevious.length;\n  const aggregationComplete=display.state==='VALID'?boolOrNull(display.payload.aggregation_complete):boolOrNull(vars.aggregation_complete);\n  const qualifiedTotal=newUnique.length+previousUnique.length;\n  const upstreamPrivateShortfall=display.state==='VALID'?numberOrNull(display.payload.shortfall):numberOrNull(vars.shortfall);const shortfall=requested!==null&&requested>0?(upstreamPrivateShortfall!==null?upstreamPrivateShortfall:Math.max(0,Math.floor(requested)-qualifiedTotal)):null;\n  const responseCounts=display.state==='VALID'&&display.payload.response_channel_counts&&typeof display.payload.response_channel_counts==='object'?display.payload.response_channel_counts:{direct_client_contact:0,platform_response:0};\n  const base = common(newUnique, display, {\n    private_display: display.payload,\n    new_persisted_count: newUnique.length,\n    qualified_duplicate_count: previousUnique.length,\n    qualified_total: qualifiedTotal,\n    report_count: renderedCount,\n    previously_found_entities: selectedPrevious,\n    search_diagnostics_state: search.state,\n    search_diagnostics: search.payload,\n    zero_stage: search.state === 'VALID' ? search.payload.zero_stage || null : null,\n    response_channel_counts: responseCounts\n  });\n  base.entities=selectedNew;base.accepted_count=qualifiedTotal;base.persisted_total=newUnique.length;base.selected_count=renderedCount;base.report_count=renderedCount;base.shortfall=shortfall;base.is_zero_result=(qualifiedTotal===0&&aggregationComplete===true);base.stats.total_found=qualifiedTotal;base.stats.accepted=qualifiedTotal;base.search_diagnostics_markdown=renderSearchDiagnostics(search);\n  const manualCurrent=manualFrom(display,'ТРЕБУЕТ ПРОВЕРКИ','НЕ ПОДТВЕРЖДЕНО'),manualKeys=new Set(manualCurrent.map(x=>canonicalUrl(x.url)).filter(Boolean)),knownKeys=new Set([...newKeys,...previousKeys]),historyManual=[];\n  for(const entry of historicalRows){const item=historicalPrivateCandidate(entry,request);if(!item)continue;const k=canonicalLeadKey(entry),u=canonicalUrl(item.url);if((k&&knownKeys.has(k))||(u&&manualKeys.has(u)))continue;if(u)manualKeys.add(u);historyManual.push(item);}\n  base.manual_check_links=manualCurrent.concat(historyManual);base.manual_review_count=base.manual_check_links.length;base.historical_recheck_count=historyManual.length;base.aggregation_complete=aggregationComplete;\n  return [{ json: base }];\n}\nconst qualified = rows.filter((entry) => String(entry.status || '').toLowerCase() === 'qualified' || (numberOrNull(entry.total_score) !== null && numberOrNull(entry.total_score) >= 60));\nconst uniqueCompanies = dedupe(qualified, (entry) => String(entry.company_id || entry.source_url || entry.website || '').trim()).sort(sortScore);\nconst selectedCompanies = requested !== null && requested > 0 ? uniqueCompanies.slice(0, Math.floor(requested)) : uniqueCompanies;\nconst aggregationComplete = boolOrNull(vars.aggregation_complete);\nconst companyPersisted = numberOrNull(vars.persisted_total) !== null ? numberOrNull(vars.persisted_total) : numberOrNull(vars.accepted_count);\nconst stats = advisoryStats(selectedCompanies, companyPersisted, aggregationComplete);\nconst acquisitionStatus = aggregationComplete === true ? 'COMPLETE' : (companyPersisted !== null && companyPersisted > 0 ? 'PARTIAL' : 'UNAVAILABLE');\nreturn [{ json: {\n  job,\n  request_service: request.service,\n  request_region: request.region,\n  entity_type: entityType,\n  result_mode: String(vars.result_mode || 'scored'),\n  entities: selectedCompanies,\n  accepted_count: numberOrNull(vars.accepted_count),\n  persisted_total: companyPersisted,\n  selected_count: selectedCompanies.length,\n  report_count: selectedCompanies.length,\n  requested_count: requested,\n  shortfall: requested !== null && requested > 0 ? Math.max(0, Math.floor(requested) - selectedCompanies.length) : null,\n  aggregation_complete: aggregationComplete,\n  acquisition_status: acquisitionStatus,\n  is_zero_result: selectedCompanies.length === 0,\n  stats,\n  qualified_count: stats.qualified,\n  search_diagnostics_markdown: '',\n  analyst_diagnostics_state: analyst.state,\n  analyst_diagnostics: analyst.payload\n} }];\n"
+      },
+      "name": "Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        704
+      ],
+      "id": "b173f260-f653-45cb-a45a-1e7e46cf265c"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "zr",
+              "leftValue": "={{ $json.is_zero_result === true }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has Qualified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1184,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (function() { var ctx = $('Prepare Context').first().json; var entities = (ctx.entities || []).slice(0, 10); var reportEntities = entities.map(function(e) { return { lead_id: e.lead_id || '', company_id: e.company_id || '', tender_id: e.tender_id || '', title: (e.title || '').toString().slice(0, 300), matched_service: e.matched_service || '', total_score: (e.total_score == null || e.total_score === '' || !Number.isFinite(Number(e.total_score))) ? null : Number(e.total_score), status: e.status || 'new', contact_phone: (e.contact_phone || '').toString().slice(0, 200), contact_tg: (e.contact_tg || '').toString().slice(0, 200), contact_email: (e.contact_email || '').toString().slice(0, 200), source_url: (e.source_url || '').toString().slice(0, 500), recommended_action: (e.recommended_action || '').toString().slice(0, 500), first_message_draft: (e.first_message_draft || '').toString().slice(0, 500), why_relevant: (e.why_relevant || '').toString().slice(0, 500) }; }); var reportPayload = { stats: ctx.stats, entity_type: ctx.entity_type, entities: reportEntities, search_diagnostics_markdown: (ctx.entity_type === 'lead' ? (ctx.search_diagnostics_markdown || 'Диагностика поиска недоступна') : '') }; return JSON.stringify({ model: 'deepseek-v4-pro', temperature: 0.3, max_tokens: 4000, thinking: { type: 'disabled' }, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Ты — старший аналитик OSINT-платформы. Сгенерируй структурированный Markdown-отчёт на русском языке на основе переданных данных о сущностях (лидах). ПРАВИЛА: 1. Заголовок # OSINT Report и дата. 2. Раздел ## Сводка используй строго поля stats.accepted (подпись «Принято после проверки»), stats.qualified (подпись «Квалифицировано»), stats.avg_score (подпись «Средний скор»). НЕ называй accepted или qualified сырым количеством найденных поиском результатов и НЕ утверждай, что поисковые источники вернули 0 результатов. 3. Раздел ## Топ сущностей таблица: №, Название, Услуга, Score, Статус, Контакты, Источник. Максимум 10 строк. 4. Раздел ## Рекомендации для total_score >= 50. 5. Раздел ## Детальный разбор топ-5. 6. Если entity_type равен lead, добавь в конец раздел \\'## Диагностика поиска\\' и вставь туда ЗНАЧЕНИЕ поля search_diagnostics_markdown ДОСЛОВНО, без изменений и без придумывания новых чисел. Никогда не смешивай поля разных сущностей. Не придумывай контакты и source_url. Верни СТРОГО JSON: { \"markdown_report\": \"string\" }' }, { role: 'user', content: JSON.stringify(reportPayload) } ] }); })() }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "DeepSeek Generate MD",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        640
+      ],
+      "id": "39f8ec84-8a0a-47be-8f19-4546813083dd",
+      "retryOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "R2rXoSacarPbKDqA",
+          "name": "DeepSeek API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const date=new Date().toISOString().slice(0,10);const c=$('Prepare Context').first().json||{};function val(v){return v===null||v===undefined||v===''?'Нет данных':String(v);}function status(v){return v==='COMPLETE'?'Полное':v==='PARTIAL'?'Частичное':v==='UNAVAILABLE'?'Недоступно':'Не определено';}const md='# Отчёт OSINT\\n\\nДата: '+date+'\\n\\n## Итог\\n\\n- **Подтверждено и сохранено:** '+val(c.persisted_total??c.accepted_count)+'\\n- **Показано:** '+val(c.selected_count)+'\\n\\n## Техническая информация\\n\\n- **Состояние получения данных:** '+status(c.acquisition_status)+'\\n';return[{json:{markdown_report:md,report_date:date}}];\n"
+      },
+      "name": "Zero Result MD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst jobId = $('Set Vars').item.json.job_id || 'unknown';\nif (!item || !item.json) throw new Error('WF6_REPORT_INPUT_INVALID');\n\nlet markdown = typeof item.json.markdown_report === 'string' ? item.json.markdown_report : null;\nif (!markdown) {\n  const raw = item.json;\n  const content = raw.choices && raw.choices[0] && raw.choices[0].message ? raw.choices[0].message.content : null;\n  if (!content) throw new Error('WF6_REPORT_CONTENT_EMPTY');\n  let parsed;\n  try { parsed = JSON.parse(String(content).trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/i, '')); }\n  catch (error) { throw new Error('WF6_REPORT_JSON_INVALID'); }\n  markdown = parsed.markdown_report;\n}\nif (!markdown || !markdown.trim()) throw new Error('WF6_REPORT_MARKDOWN_EMPTY');\n\nfunction inline(source) {\n  let html = String(source).replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  html = html.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^)]+)\\)/g, function (_, label, url) {\n    return '<a href=\"' + String(url).replace(/&/g, '&amp;').replace(/\"/g, '&quot;') + '\">' + String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</a>';\n  });\n  html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');\n  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');\n  return html;\n}\n\nconst lines = markdown.split(/\\r?\\n/);\nlet body = '';\nlet inList = false;\nlet openSection = '';\nfunction closeList() { if (inList) { body += '</ul>'; inList = false; } }\nfunction closeSection(expected) {\n  closeList();\n  if (openSection === expected) { body += '</section>'; openSection = ''; }\n}\nfor (const rawLine of lines) {\n  const line = rawLine.trim();\n  if (line === '[[CARD_START]]') { closeList(); if (openSection) body += '</section>'; body += '<section class=\"result-card\">'; openSection = 'card'; continue; }\n  if (line === '[[CARD_END]]') { closeSection('card'); continue; }\n  if (line === '[[REVIEW_START]]') { closeList(); if (openSection) body += '</section>'; body += '<section class=\"review-card\">'; openSection = 'review'; continue; }\n  if (line === '[[REVIEW_END]]') { closeSection('review'); continue; }\n  if (line === '[[TECH_START]]') { closeList(); if (openSection) body += '</section>'; body += '<section class=\"technical\">'; openSection = 'technical'; continue; }\n  if (line === '[[TECH_END]]') { closeSection('technical'); continue; }\n  if (!line) { closeList(); continue; }\n  let match;\n  if ((match = line.match(/^# (.+)$/))) { closeList(); body += '<h1>' + inline(match[1]) + '</h1>'; continue; }\n  if ((match = line.match(/^## (.+)$/))) { closeList(); body += '<h2>' + inline(match[1]) + '</h2>'; continue; }\n  if ((match = line.match(/^### (.+)$/))) { closeList(); body += '<h3>' + inline(match[1]) + '</h3>'; continue; }\n  if ((match = line.match(/^- (.+)$/))) {\n    if (!inList) { body += '<ul>'; inList = true; }\n    body += '<li>' + inline(match[1]) + '</li>';\n    continue;\n  }\n  closeList();\n  body += '<p>' + inline(line) + '</p>';\n}\ncloseList();\nif (openSection) body += '</section>';\n\nconst date = item.json.report_date && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.json.report_date) ? item.json.report_date : new Date().toISOString().slice(0, 10);\nconst safeJobId = String(jobId).replace(/</g, '');\nconst html = '<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"utf-8\"><title>OSINT ' + safeJobId + '</title><style>' +\n  '@page{size:A4;margin:15mm 14mm 15mm}' +\n  '*{box-sizing:border-box}' +\n  'body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:10.5pt;line-height:1.42;margin:0}' +\n  'h1{font-size:21pt;color:#173b67;border-bottom:2px solid #173b67;padding-bottom:6px;margin:0 0 16px}' +\n  'h2{font-size:15pt;color:#285b91;margin:22px 0 9px;break-after:avoid-page;page-break-after:avoid}' +\n  'h3{font-size:12.2pt;color:#173b67;margin:0 0 7px;break-after:avoid-page;page-break-after:avoid}' +\n  'p{margin:5px 0 7px}' +\n  'ul{margin:5px 0 8px 18px;padding:0}' +\n  'li{margin:3px 0}' +\n  '.result-card,.review-card{border:1px solid #d7dee7;border-radius:7px;padding:9px 11px;margin:9px 0;page-break-inside:avoid;break-inside:avoid;background:#fff}' +\n  '.review-card{border-left:4px solid #8a6d1d}' +\n  '.technical{margin-top:20px;padding:10px 12px;border:1px solid #d7dee7;background:#f7f9fc;page-break-inside:avoid;break-inside:avoid;font-size:9.5pt}' +\n  '.technical h2{margin-top:0}' +\n  'a{color:#0b57d0;text-decoration:none;word-break:break-word}' +\n  'code{background:#f3f4f6;padding:1px 4px;border-radius:3px}' +\n  '</style></head><body>' + body + '</body></html>';\n\nreturn [{ json: { html, md: markdown, filename: 'OSINT_' + jobId + '_' + date + '.pdf', job_id: jobId, report_date: date } }];\n"
+      },
+      "name": "MD to HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        704
+      ],
+      "id": "0657bc52-da70-4365-a622-3474d5a1d79e"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FAIL-CLOSED: WF6 Create HTML Binary\nvar html = $input.first()?.json?.html;\nif (!html || typeof html !== 'string' || html.trim() === '') {\n  throw new Error('WF6_HTML_MISSING — html field is absent, not a string, or empty');\n}\nconst binaryData = await this.helpers.prepareBinaryData(html, 'index.html', 'text/html');\nreturn [{ json: { ok: true }, binary: { 'index.html': binaryData } }];"
+      },
+      "name": "Create HTML Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        704
+      ],
+      "id": "d65a36da-d0cd-42ca-b891-ca31a606bfe3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "index.html"
+            },
+            {
+              "name": "paperWidth",
+              "value": "8.27"
+            },
+            {
+              "name": "paperHeight",
+              "value": "11.69"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "name": "Gotenberg to PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1952,
+        704
+      ],
+      "id": "f9b47b4f-1b7f-447e-a401-bae4f7176ce2"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('MD to HTML').item.json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1xm1Luua_anWS8hLghLJLg_MKZenQ1-SZ",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "name": "Upload to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2208,
+        592
+      ],
+      "id": "8756e01d-79f6-47cc-aad5-8938a1d1e45d",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "vfX5XNxSmi7T7Zks",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const upload = $input.first();\nconst pdf = $('Gotenberg to PDF').first();\nif (!pdf || !pdf.binary || !pdf.binary.data) {\n  throw new Error('WF6_PDF_BINARY_MISSING_BEFORE_DELIVERY');\n}\nreturn [{\n  json: upload.json || {},\n  binary: {\n    data: pdf.binary.data\n  }\n}];"
+      },
+      "name": "Restore PDF Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        592
+      ],
+      "id": "d4c8e1f9-6a2b-4c5d-9e7f-1a2b3c4d5e6f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "rd",
+              "leftValue": "={{ $('Read Job').first().json.origin_channel }}",
+              "rightValue": "telegram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Route Delivery",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2432,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $('Read Job').first().json.chat_id }}",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "=📊 *OSINT-отчёт готов*\n\n*ID задания*: `{{ $('Set Vars').item.json.job_id }}`\n*Состояние получения данных*: {{ ({COMPLETE:'Полное',PARTIAL:'Частичное',UNAVAILABLE:'Недоступно'})[$('Prepare Context').item.json.acquisition_status] || 'Не определено' }}\n*Подтверждено и сохранено*: {{ $('Prepare Context').item.json.persisted_total == null ? 'Нет данных' : $('Prepare Context').item.json.persisted_total }}\n*Показано в отчёте*: {{ $('Prepare Context').item.json.report_count == null ? 'Нет данных' : $('Prepare Context').item.json.report_count }}\n*Запрошено*: {{ $('Prepare Context').item.json.requested_count == null ? 'Нет данных' : $('Prepare Context').item.json.requested_count }}\n*Полнота покрытия*: {{ $('Prepare Context').item.json.aggregation_complete === true ? 'Да' : ($('Prepare Context').item.json.aggregation_complete === false ? 'Нет' : 'Нет данных') }}\n*Требуют ручной проверки*: {{ $('Prepare Context').item.json.manual_review_count == null ? 'Нет данных' : $('Prepare Context').item.json.manual_review_count }}",
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Telegram Send PDF",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2656,
+        592
+      ],
+      "id": "c0329d5f-fd7b-497f-82e1-c58b676884eb",
+      "webhookId": "894de25b-17f6-4312-895e-ebcc7aef54ce",
+      "credentials": {
+        "telegramApi": {
+          "id": "Xw7qHzoLSGuJnpZr",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "xander1s@yandex.ru",
+        "toEmail": "={{ $('Read Job').first().json.requester_email }}",
+        "subject": "=OSINT-отчёт {{ $('Set Vars').item.json.job_id }}",
+        "html": "=<h2>Отчёт OSINT-платформы</h2><p><b>ID задания:</b> <code>{{ $('Set Vars').item.json.job_id }}</code></p><p><b>Состояние получения данных:</b> {{ ({COMPLETE:'Полное',PARTIAL:'Частичное',UNAVAILABLE:'Недоступно'})[$('Prepare Context').item.json.acquisition_status] || 'Не определено' }}<br><b>Подтверждено и сохранено:</b> {{ $('Prepare Context').item.json.persisted_total == null ? 'Нет данных' : $('Prepare Context').item.json.persisted_total }}<br><b>Показано в отчёте:</b> {{ $('Prepare Context').item.json.report_count == null ? 'Нет данных' : $('Prepare Context').item.json.report_count }}<br><b>Запрошено:</b> {{ $('Prepare Context').item.json.requested_count == null ? 'Нет данных' : $('Prepare Context').item.json.requested_count }}<br><b>Полнота покрытия:</b> {{ $('Prepare Context').item.json.aggregation_complete === true ? 'Да' : ($('Prepare Context').item.json.aggregation_complete === false ? 'Нет' : 'Нет данных') }}</p><p>📄 PDF-отчёт: <a href=\"{{ $('Upload to Drive').first().json.webViewLink }}\">Открыть в Google Drive</a></p>",
+        "options": {}
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2656,
+        816
+      ],
+      "id": "a67f41a5-3345-4956-9d4a-effe31512ac1",
+      "webhookId": "447acd43-9eab-4310-9199-3ddb6eec07d5",
+      "credentials": {
+        "smtp": {
+          "id": "H2ru5T06SuHhoIra",
+          "name": "Yandex SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "reports"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "report_id": "={{ 'rep_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10) }}",
+            "job_id": "={{ $('Set Vars').item.json.job_id }}",
+            "created_at": "={{ new Date().toISOString() }}",
+            "pdf_drive_url": "={{ $('Upload to Drive').first().json.webViewLink }}",
+            "md_content_short": "={{ $('MD to HTML').item.json.md.slice(0,500) }}",
+            "delivery_channel": "={{ $('Read Job').first().json.origin_channel }}",
+            "delivery_status": "sent",
+            "delivered_at": "={{ new Date().toISOString() }}",
+            "telegram_sent": "={{ $('Read Job').first().json.origin_channel === 'telegram' }}",
+            "email_sent": "={{ $('Read Job').first().json.origin_channel === 'email' }}",
+            "report_url": "={{ $('Upload to Drive').first().json.webViewLink }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "report_id",
+              "displayName": "report_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pdf_drive_url",
+              "displayName": "pdf_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "md_content_short",
+              "displayName": "md_content_short",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "delivery_channel",
+              "displayName": "delivery_channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "delivery_status",
+              "displayName": "delivery_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "delivered_at",
+              "displayName": "delivered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_sent",
+              "displayName": "telegram_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_sent",
+              "displayName": "email_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "report_url",
+              "displayName": "report_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Log Report",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2864,
+        704
+      ],
+      "id": "9fe15080-697c-4f5d-8d5f-757555b36ccf",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dUZaJdXfgHXwnmNN",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "jobs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $('Set Vars').item.json.job_id }}",
+            "status": "done",
+            "finished_at": "={{ new Date().toISOString() }}",
+            "report_url": "={{ $('Upload to Drive').first().json.webViewLink }}",
+            "row_number": 0
+          },
+          "matchingColumns": [
+            "job_id"
+          ],
+          "schema": [
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "finished_at",
+              "displayName": "finished_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "report_url",
+              "displayName": "report_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Update Job Terminal",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3072,
+        704
+      ],
+      "id": "96245202-a0a1-49ef-97f4-f4cb8ab15b70",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dUZaJdXfgHXwnmNN",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "tr",
+              "leftValue": "={{ $json.entity_type }}",
+              "rightValue": "tender",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Is Tender Report?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        592
+      ],
+      "id": "is-tender-report-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const context=$json||{},rows=Array.isArray(context.entities)?context.entities:[];\nconst payload=context.display_payload&&typeof context.display_payload==='object'?context.display_payload:null;\nconst diagnostics=context.tender_diagnostics&&typeof context.tender_diagnostics==='object'?context.tender_diagnostics:{};\nconst reviewKnown=Array.isArray(context.manual_check_links),review=reviewKnown?context.manual_check_links.map(x=>x&&typeof x==='object'?x:{}):[];\nconst date=new Date().toISOString().slice(0,10);\nfunction esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}\nfunction value(v,fallback='Нет данных'){return v===null||v===undefined||v===''?fallback:String(v);}\nfunction safeLink(url,label){const u=String(url||'').trim();return /^https?:\\/\\/[^\\s@\\\\]+$/i.test(u)?'['+label+']('+u.replace(/\\)/g,'%29')+')':'Ссылка недоступна — требуется восстановить исходные данные';}\nfunction coverage(s){return s==='COMPLETE'?'Полное в пределах настроенного плана':s==='PARTIAL'?'Частичное':s==='UNAVAILABLE'?'Недоступно':'Не определено';}\nfunction score(v){return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?String(Number(v)):'Не оценено';}\nconst reasonMap={REGION_UNKNOWN:'регион заявки не подтверждён',SERVICE_UNKNOWN:'соответствие услуге не подтверждено',FRESHNESS_UNKNOWN:'актуальность и срок подачи требуют проверки',ATOMICITY_UNKNOWN:'принадлежность отдельной закупке не подтверждена',CLASSIFICATION_INCOMPLETE:'классификация не завершена',RELEVANCE_UNKNOWN:'оценка релевантности не завершена',SOURCE_EXCERPT_EMPTY:'нет подтверждающего описания',PERSISTENCE_ERROR:'ошибка сохранения',PERSISTENCE_UNCERTAIN:'сохранение не подтверждено',REGION_NOT_MATCH:'другой регион',SERVICE_NOT_MATCH:'другая услуга',EXPIRED:'срок подачи истёк',ARCHIVED:'закупка завершена или архивная',DELETED:'страница удалена',NOT_ATOMIC:'страница не является отдельной закупкой',EVIDENCE_NOT_FULL:'чтение карточки не завершено',INVALID_URL:'некорректная ссылка',UNRESOLVED_DISCOVERY:'поисковая страница не разрешена',VERIFICATION_DEFERRED:'найден релевантный кандидат; полная проверка отложена из-за ограниченного verification budget',MANUAL_REVIEW:'полезный кандидат для ручной проверки',UNRESOLVED:'недостаточно данных для квалификации',STRICT_PERSISTED:'подтверждено и сохранено',ACCEPT:'подтверждено и сохранено'};\nfunction reasonRu(r){const s=String(r||'');return reasonMap[s]||(/[а-яё]/iu.test(s)?s:(s?'Требует уточнения ('+s+')':'Причина не передана'));}\nfunction plain(v){return String(v==null?'':v).replace(/\\s+/g,' ').trim();}\nfunction chromeScore(text){const s=plain(text);return[/выделить\\s+цветом/iu,/первоисточник/iu,/в\\s+избранное/iu,/информация\\s+по\\s+тендеру/iu,/добавить\\s+в\\s+мои\\s+заказчики/iu,/звонок\\s+менеджеру/iu,/вопрос\\s+по\\s+тендеру/iu,/прогноз\\s+победителя/iu,/найти\\s+похожие/iu,/тендеры\\s+на\\s+.+\\s+всей\\s+россии/iu].reduce((n,re)=>n+(re.test(s)?1:0),0);}\nfunction cleanNarrative(text,fallback){const raw=plain(text),fb=plain(fallback);if(!raw)return fb||'Подробное описание не получено';if(chromeScore(raw)>=2)return fb||'Подробное описание содержит служебную разметку источника';let s=raw.replace(/\\b(?:Выделить цветом|Первоисточник|В избранное|Информация по тендеру|Звонок менеджеру|Вопрос по тендеру|Прогноз победителя|Найти похожие)\\b/giu,' ').replace(/\\s+/g,' ').trim();if(fb&&s.toLowerCase().startsWith(fb.toLowerCase()))s=s.slice(fb.length).replace(/^\\s*[-—:|]+\\s*/,'').trim();return(s||fb||'Подробное описание не получено').slice(0,420);}\nfunction usefulFragment(e){const s=plain(e.source_excerpt||'');if(!s||chromeScore(s)>=2)return'';return s.slice(0,320);}\nfunction ymd(v){const s=String(v||'').trim();return /^\\d{4}-\\d{2}-\\d{2}$/.test(s)?s:null;}\nfunction ruDate(v){const s=ymd(v);return s?s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(0,4):value(v);}\nfunction currentStage(e){const s=plain(e.lifecycle_evidence||e.freshness_evidence||e.source_excerpt||'');const m=s.match(/этап(?:\\s+торгов)?\\s*:\\s*(текущ\\p{L}*)/iu);return m?m[1]:'';}\nfunction freshnessRationale(e){const status=String(e.freshness_status||'');const dl=ymd(e.deadline),rd=ymd(date),stage=currentStage(e);const parts=[];if(status==='CURRENT'&&dl&&rd&&dl>rd)parts.push('Актуален: срок подачи '+ruDate(dl)+'; дата проверки '+ruDate(rd)+'.');else if(status==='CURRENT'&&dl&&rd&&dl===rd)parts.push('Актуален на дату проверки '+ruDate(rd)+'; срок подачи сегодня.');else if(status==='CURRENT'&&dl)parts.push('Актуальность подтверждена; срок подачи '+ruDate(dl)+'.');else{const ev=plain(e.freshness_evidence||e.lifecycle_evidence||'');if(ev)parts.push(ev);}if(status==='CURRENT'&&stage)parts.push('Статус источника: '+stage+'.');return parts.join(' ')||'Точная формулировка основания не сохранена в строке результата';}\nfunction serviceRationale(e){const m=plain(e.matched_service||e.service_evidence||'');if(m)return m;const req=plain(context.request_service);return req?'Подтверждено строгое соответствие запросу «'+req+'».':'Соответствие услуге подтверждено итоговым evidence-проходом.';}\nfunction nativeId(e){const n=plain(e.tender_number||'');if(n)return n;const u=plain(e.url||'');let m;if((m=u.match(/initpro\\.ru\\/tender\\/(\\d+)/i)))return'initpro:'+m[1];if((m=u.match(/b2b-center\\.ru\\/[^?#]*?(?:tender[-_/]|id=)(\\d+)/i)))return'b2b-center:'+m[1];return'';}\nfunction missingManual(e){const c=e&&typeof e.checks==='object'?e.checks:{};const miss=[];if(c.region!=='MATCH')miss.push('регион заявки');if(c.service!=='MATCH')miss.push('точное соответствие запрошенной услуге');if(c.freshness!=='CURRENT')miss.push('актуальный срок подачи / действующий статус');if(e.link_kind!=='ATOMIC_TENDER')miss.push('принадлежность отдельной закупке');return miss.length?miss.join('; '):reasonRu(e.reason);}\nfunction histogramLines(h){if(!h||typeof h!=='object')return'- Нет данных\\n';const rows=Object.entries(h).filter(([,n])=>Number(n)>0);return rows.length?rows.map(([k,n])=>'- **'+esc(reasonRu(k.replace(/^REJECTED_/,'')))+':** '+esc(n)).join('\\n')+'\\n':'- Нет данных\\n';}\nconst manualCount=reviewKnown?review.length:null;\nconst manualMismatch=reviewKnown&&context.manual_review_count!==null&&context.manual_review_count!==undefined&&Number(context.manual_review_count)!==review.length;\nconst confirmedMismatch=context.report_count!==null&&context.report_count!==undefined&&Number(context.report_count)!==rows.length;\nconst cardinalityConsistent=!manualMismatch&&!confirmedMismatch;\nlet md='# OSINT PLATFORM\\n\\n## Tender Intelligence\\n\\n### Отчёт по тендерам\\n\\nДата: '+date+'\\n\\n## Параметры запроса\\n\\n- **Услуга:** '+esc(value(context.request_service))+'\\n- **Регион:** '+esc(value(context.request_region))+'\\n- **Запрошено результатов:** '+esc(value(context.requested_count))+'\\n\\n## Итог для решения\\n\\n- **Подтверждённых действующих тендеров:** '+esc(value(context.persisted_total))+'\\n- **Новых подтверждённых:** '+esc(value(context.new_persisted_count,'0'))+'\\n- **Актуальных найденных ранее:** '+esc(value(context.previously_found_count,'0'))+'\\n- **Показано подтверждённых карточек:** '+rows.length+'\\n- **Для ручной проверки:** '+esc(value(manualCount,'Не определено'))+'\\n- **Недостаёт до запрошенного количества:** '+esc(value(context.shortfall,'Не определено'))+'\\n- **Покрытие источников:** '+coverage(context.acquisition_status)+'\\n\\nПолнота всего рынка не установлена. Ручная проверка не засчитывается в подтверждённые результаты.\\n\\n';\nif(manualMismatch)md+='**Неполные данные отчёта:** счётчик передал '+esc(value(context.manual_review_count))+' manual-кандидатов, но передано '+review.length+' карточек. Итог требует восстановления данных.\\n\\n';\nif(confirmedMismatch)md+='**Неполные данные отчёта:** число переданных подтверждённых карточек не совпало со счётчиком результата.\\n\\n';\nmd+='## Подтверждённые действующие тендеры\\n\\n';\nif(!rows.length)md+=context.aggregation_complete===true&&cardinalityConsistent?'В обработанном наборе источников подтверждённых актуальных тендеров не найдено.\\n\\n':'Строго подтверждённые результаты не сформированы; полный нулевой результат не установлен.\\n\\n';\nrows.forEach((e,i)=>{const id=nativeId(e),fragment=usefulFragment(e),prior=e.found_before===true||String(e.result_status||'')==='PREVIOUSLY_FOUND_CURRENT';md+='[[CARD_START]]\\n### '+(i+1)+'. '+esc(value(e.title,'Без названия'))+(prior?' — найден ранее, всё ещё актуален':'')+'\\n\\n- **Что требуется:** '+esc(cleanNarrative(e.summary,e.title))+'\\n- **Заказчик:** '+esc(value(e.customer))+'\\n- **Регион:** '+esc(value(e.region))+'\\n- **Источник:** '+esc(value(e.platform||e.source))+'\\n- **Срок подачи:** '+esc(ymd(e.deadline)?ruDate(e.deadline):value(e.deadline))+'\\n- **Подтверждение актуальности:** '+esc(freshnessRationale(e))+'\\n- **Почему соответствует запросу:** '+esc(serviceRationale(e))+'\\n- **Бюджет:** '+esc(value(e.budget))+'\\n'+(id?'- **Номер / ID:** '+esc(id)+'\\n':'')+'- **Рейтинг:** '+score(e.total_score)+'\\n- **Прямая ссылка:** '+safeLink(e.url,'Открыть тендер')+'\\n'+(fragment?'\\n- **Фрагмент источника:** '+esc(fragment)+'\\n':'')+'[[CARD_END]]\\n\\n';});\nmd+='## Кандидаты для ручной проверки\\n\\n';\nif(!review.length)md+=reviewKnown?'Кандидатов для ручной проверки в переданном наборе нет.\\n\\n':'Данные ручной проверки не переданы.\\n\\n';\nreview.forEach((e,i)=>{const c=e.checks||{},knownRegion=c.region==='MATCH'?value(e.region):'UNKNOWN — не подтверждён';const service=c.service==='MATCH'?'Соответствует по доступному свидетельству':c.service==='MISMATCH'?'Не соответствует запрошенной услуге':'UNKNOWN — требуется проверить';const fresh=c.freshness==='CURRENT'?'Подтверждена по переданному свидетельству':c.freshness==='EXPIRED'?'Срок подачи истёк':'UNKNOWN — срок подачи или действующий статус не подтверждены';md+='[[REVIEW_START]]\\n### '+(i+1)+'. '+esc(value(e.title,'Название не передано'))+'\\n\\n- **Что известно:** '+esc(cleanNarrative(e.description,e.title))+'\\n- **Источник:** '+esc(value(e.source))+'\\n- **Регион:** '+esc(knownRegion)+'\\n- **Соответствие услуге:** '+esc(service)+'\\n- **Актуальность:** '+esc(fresh)+'\\n- **Что именно не подтверждено:** '+esc(missingManual(e))+'\\n- **Причина ручной проверки:** '+esc(reasonRu(e.reason))+'\\n- **Прямая ссылка:** '+safeLink(e.url,'Проверить исходную карточку')+'\\n[[REVIEW_END]]\\n\\n';});\nconst discovery=payload&&Array.isArray(payload.discovery_links)?payload.discovery_links:[];\nif(discovery.length){md+='## Неразрешённые страницы поиска\\n\\nЭти страницы не являются отдельными возможностями и не входят в счётчики подтверждённых или manual-карточек.\\n\\n';for(const d of discovery)md+='- '+safeLink(d.url,esc(value(d.title,'Страница поиска')))+' — '+esc(d.status==='NOT_READ_WITHIN_BOUND'?'не прочитана в пределах заданного бюджета':'карточки не удалось получить')+'.\\n';md+='\\n';}\nmd+='[[TECH_START]]\\n## Техническая информация\\n\\n- **Полнота агрегации:** '+(context.aggregation_complete===true?'Да':context.aggregation_complete===false?'Нет':'Нет данных')+'\\n- **Покрытие плана:** '+coverage(context.acquisition_status)+'\\n- **Ожидалось кандидатов:** '+esc(value(diagnostics.candidate_expected))+'\\n- **Завершено кандидатов:** '+esc(value(diagnostics.candidate_terminals))+'\\n- **Кандидатов до ограничения:** '+esc(value(diagnostics.candidate_before_cap))+'\\n- **За пределами бюджета карточек:** '+esc(value(diagnostics.candidate_omitted_count))+'\\n- **Неразрешённые поисковые страницы:** '+esc(value(diagnostics.discovery_unresolved))+'\\n- **Удалено повторных представлений:** '+esc(value(diagnostics.business_identity_duplicates))+'\\n- **Успешно сохранено:** '+esc(value(diagnostics.persistence?.success))+'\\n- **Ошибки сохранения:** '+esc(value(diagnostics.persistence?.error))+'\\n- **Неопределённое сохранение:** '+esc(value(diagnostics.persistence?.uncertain))+'\\n- **Соответствие счётчиков карточкам:** '+(cardinalityConsistent?'Да':'Нет')+'\\n\\n### Итоги обработки\\n\\n'+histogramLines(diagnostics.terminal_status)+'\\n### Причины решений\\n\\n'+histogramLines(diagnostics.first_fail_reason)+'[[TECH_END]]\\n';\nreturn[{json:{markdown_report:md,report_date:date,persisted_total:context.persisted_total,selected_count:rows.length,report_count:rows.length,manual_review_count:manualCount,rendered_manual_count:review.length,rendered_confirmed_count:rows.length,report_cardinality_consistent:cardinalityConsistent,requested_count:context.requested_count,shortfall:context.shortfall,aggregation_complete:context.aggregation_complete,acquisition_status:context.acquisition_status}}];"
+      },
+      "name": "Build Tender Report MD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        480
+      ],
+      "id": "build-tender-md-001"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "pr",
+              "leftValue": "={{ $json.entity_type }}",
+              "rightValue": "lead",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Is Private Report?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        528
+      ],
+      "id": "70681cac-5c46-4849-926d-4bfe973124cc"
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json||{},rows=Array.isArray(c.entities)?c.entities:[],prev=Array.isArray(c.previously_found_entities)?c.previously_found_entities:[],manual=Array.isArray(c.manual_check_links)?c.manual_check_links:[],date=new Date().toISOString().slice(0,10),diag=c.search_diagnostics&&typeof c.search_diagnostics==='object'?c.search_diagnostics:null;\nfunction esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}function val(v,e='Нет данных'){return v==null||v===''?e:String(v);}function score(v){if(v==null||v==='')return'Не оценено';const n=Number(v);return Number.isFinite(n)?String(n):'Не оценено';}function link(u,l){u=String(u||'');return /^https?:\\/\\//i.test(u)?'['+l+']('+u.replace(/\\)/g,'%29')+')':'Ссылка недоступна';}function source(s){const m={'freelance.ru':'Freelance.ru','kwork':'Kwork','fl.ru':'FL.ru','freelancehunt':'Freelancehunt','pchel.net':'Pchel.net','youdo':'YouDo','workzilla':'Workzilla','upwork':'Upwork','bark':'Bark','airtasker':'Airtasker','vk':'VK','telegram':'Telegram','general':'Веб-поиск'};return m[String(s||'').toLowerCase()]||val(s,'Не указан');}function fresh(e){return e.posted_at||({CURRENT:'Актуальна',STALE:'Устарела',EXPIRED:'Срок истёк'}[e.freshness_status]||'Не доказана');}function reg(e){if(e.region_match_basis==='EXPLICIT_REMOTE')return'Явно указана удалённая работа';if(e.region_status==='MATCH')return val(e.region||c.request_region,'Регион подтверждён');return val(e.region,'Не доказан');}function response(e){if(e.direct_client_contact_confirmed===true){const x=[];if(e.contact_phone)x.push('телефон: '+e.contact_phone);if(e.contact_email)x.push('e-mail: '+e.contact_email);if(e.contact_tg)x.push('Telegram: '+e.contact_tg);if(x.length)return x.join('; ');}if(e.actionability_mode==='ACTIONABLE_PLATFORM_RESPONSE'||e.response_channel==='PLATFORM_RESPONSE'||e.source_url||e.url)return'Отклик через площадку по прямой ссылке';return'Не указан';}function coverage(v){return v==='COMPLETE'?'Полное':(v==='PARTIAL'?'Частичное':(v==='UNAVAILABLE'?'Недоступно':'Не определено'));}\nfunction card(e,prior,index){const u=e.source_url||e.url;return '[[CARD_START]]\\n### '+index+'. '+esc(e.title||e.description||'Без названия')+(prior?' — найдена ранее':'')+'\\n\\n- **Описание:** '+esc(val(e.description||e.snippet||e.why_relevant,'Нет данных'))+'\\n- **Источник:** '+esc(source(e.source_platform||e.source))+'\\n- **Регион / формат:** '+esc(reg(e))+'\\n- **Актуальность:** '+esc(fresh(e))+'\\n- **Способ отклика:** '+esc(response(e))+'\\n- **Рейтинг:** '+esc(score(e.total_score??e.score))+'\\n- **Прямая ссылка:** '+link(u,'Открыть заявку')+'\\n[[CARD_END]]\\n\\n';}\nconst rc=c.response_channel_counts&&typeof c.response_channel_counts==='object'?c.response_channel_counts:{};const direct=Number(rc.direct_client_contact)||0,platform=Number(rc.platform_response)||0;const renderedStrict=rows.length+prev.length;\nlet md='# Частные заказы\\n\\nДата: '+date+'\\n\\n## Параметры запроса\\n\\n- **Услуга:** '+esc(val(c.request_service))+'\\n- **Регион:** '+esc(val(c.request_region))+'\\n- **Запрошено результатов:** '+esc(val(c.requested_count))+'\\n\\n## Итог для решения\\n\\n- **Новых подтверждённых заявок:** '+esc(val(c.new_persisted_count,'0'))+'\\n- **Новых сохранено:** '+esc(val(c.new_persisted_count,'0'))+'\\n- **Актуальных заявок, найденных ранее:** '+esc(val(c.qualified_duplicate_count,'0'))+'\\n- **Актуальных ранее найдено:** '+esc(val(c.qualified_duplicate_count,'0'))+'\\n- **Показано строгих карточек:** '+renderedStrict+'\\n- **Требуется ручная проверка:** '+manual.length+'\\n- **Недостаёт до запрошенного количества:** '+esc(val(c.shortfall,'Не определено'))+'\\n- **Публикаций с прямым контактом заказчика:** '+direct+'\\n- **Публикаций с откликом через площадку:** '+platform+'\\n\\n## Новые подтверждённые заявки\\n\\n';\nlet idx=1;if(rows.length){for(const e of rows)md+=card(e,false,idx++);}else md+='Подтверждённых новых заявок нет.\\n\\n';\nif(prev.length){md+='## Ранее найденные актуальные заявки\\n\\n';for(const e of prev)md+=card(e,true,idx++);}\nmd+='## Дополнительные публикации для ручной проверки\\n\\n';if(manual.length){let ri=1;for(const e of manual){md+='[[REVIEW_START]]\\n### '+ri+++'. '+esc(e.title||'Без названия')+'\\n\\n- **Описание:** '+esc(val(e.description))+'\\n- **Источник:** '+esc(source(e.source))+'\\n- **Регион / формат:** '+esc(reg(e))+'\\n- **Причина проверки:** '+esc(val(({SERVICE_ADJACENT:'запрошенная услуга является существенной частью более широкого заказа',REGION_UNKNOWN:'регион не доказан',FRESHNESS_NOT_CURRENT:'актуальность не доказана',DEDUP_UNKNOWN:'статус уникальности не подтверждён',PERSISTENCE_ERROR:'ошибка сохранения',PERSISTENCE_UNCERTAIN:'сохранение не подтверждено',ROLE_AMBIGUOUS:'роль заказчика требует уточнения'}[e.reason]),'Требуется уточнение'))+'\\n- **Рейтинг:** '+esc(score(e.score))+'\\n- **Прямая ссылка:** '+link(e.url,'Открыть публикацию')+'\\n[[REVIEW_END]]\\n\\n';}}else md+='Подходящих публикаций для ручной проверки нет.\\n\\n';\nmd+='## Краткие причины отклонения\\n\\n';const h=diag&&diag.first_fail_histogram?diag.first_fail_histogram:{};const ru={SERVICE_NOT_MATCH:'услуга не соответствует запросу',REGION_NOT_MATCH:'другой регион',REGION_UNKNOWN:'регион не доказан',STALE:'публикация устарела',FRESHNESS_NOT_CURRENT:'актуальность не доказана',SUPPLY_NOT_DEMAND:'это предложение услуг, а не заказ',ROLE_NOT_PRIVATE_DEMAND:'не подтверждён частный спрос',B2B_NOT_PRIVATE:'корпоративный подряд вместо частного заказа',EVIDENCE_INSUFFICIENT:'недостаточно доказательств',NO_ACTIONABLE_RESPONSE:'нет доказанного способа отклика',PREVIOUSLY_FOUND_RECHECK:'найдено ранее; требуется повторная проверка актуальности'};const pairs=Object.entries(h).filter(([,n])=>Number(n)>0);md+=pairs.length?pairs.map(([k,n])=>'- '+(ru[k]||'прочая причина')+': '+n).join('\\n')+'\\n\\n':'Нет агрегированных данных.\\n\\n';\nmd+='[[TECH_START]]\\n## Техническая информация\\n\\n- **Покрытие источников:** '+coverage(c.acquisition_status)+'\\n- **Агрегация завершена:** '+(c.aggregation_complete===true?'Да':'Нет / не доказано')+'\\n- **Диагностика:** '+esc(c.search_diagnostics_markdown||'Диагностика недоступна')+'\\n[[TECH_END]]\\n';return[{json:{markdown_report:md,report_count:renderedStrict,rendered_strict_cards:renderedStrict}}];"
+      },
+      "name": "Build Private Report MD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        464
+      ],
+      "id": "3c00a82c-1cc3-4218-92ca-6ab78bd8ae30"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1BddnyOBG8Q0BYpXoE0QFkJG2pJi_oxk0aLfJ86IggXA"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set Vars').item.json.entity_type === 'company' ? 'companies' : ($('Set Vars').item.json.entity_type === 'tender' ? 'tenders' : 'leads') }}"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "options": {}
+      },
+      "name": "Read Historical Market Entities",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        912,
+        864
+      ],
+      "id": "f5a5f76a-8b31-4103-95e7-f6efa4b2e83d",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dUZaJdXfgHXwnmNN",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Set Vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Vars": {
+      "main": [
+        [
+          {
+            "node": "Read Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Job": {
+      "main": [
+        [
+          {
+            "node": "Read Qualified Entities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Qualified Entities": {
+      "main": [
+        [
+          {
+            "node": "Read Historical Market Entities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Context": {
+      "main": [
+        [
+          {
+            "node": "Is Private Report?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Qualified?": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek Generate MD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Zero Result MD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Generate MD": {
+      "main": [
+        [
+          {
+            "node": "MD to HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zero Result MD": {
+      "main": [
+        [
+          {
+            "node": "MD to HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MD to HTML": {
+      "main": [
+        [
+          {
+            "node": "Create HTML Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create HTML Binary": {
+      "main": [
+        [
+          {
+            "node": "Gotenberg to PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gotenberg to PDF": {
+      "main": [
+        [
+          {
+            "node": "Upload to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Drive": {
+      "main": [
+        [
+          {
+            "node": "Restore PDF Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore PDF Binary": {
+      "main": [
+        [
+          {
+            "node": "Route Delivery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Delivery": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Send PDF": {
+      "main": [
+        [
+          {
+            "node": "Log Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Log Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Report": {
+      "main": [
+        [
+          {
+            "node": "Update Job Terminal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Tender Report?": {
+      "main": [
+        [
+          {
+            "node": "Build Tender Report MD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Qualified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tender Report MD": {
+      "main": [
+        [
+          {
+            "node": "MD to HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Private Report?": {
+      "main": [
+        [
+          {
+            "node": "Build Private Report MD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Tender Report?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Private Report MD": {
+      "main": [
+        [
+          {
+            "node": "MD to HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Historical Market Entities": {
+      "main": [
+        [
+          {
+            "node": "Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "65dd5bfdd5bd23c4610ca6a25496958f6e139a7aa0be700c2c525059b427f26d"
+  }
+}

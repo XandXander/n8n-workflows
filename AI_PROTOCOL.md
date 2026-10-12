@@ -1,5 +1,9 @@
 # AI_PROTOCOL.md
 
+## Owner safety rule — n8n REST in Opera (2026-10-12)
+
+**Do not request n8n REST/API data using Opera browser, Opera browser connector, Swagger, DevTools, address-bar REST URLs, or in-page fetch.** Owner observed a shared n8n session logout from this access pattern. This prohibition also applies to read-only calls. Do not repeat tests to diagnose it in Opera. Use separately authorized direct tools/API **outside Opera** following the active project-specific governance and backup constraints. Historical browser API-export instructions do not override this rule.
+
 ## Purpose
 Протокол взаимодействия двух AI-агентов в проекте OSINT Platform: ChatGPT (Главный Архитектор) и Open WebUI / DeepSeek V4 Pro (AI-Инженер).
 
